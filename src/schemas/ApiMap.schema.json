@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ApiMap",
+  "type": "object",
+  "properties": {
+    "endpoints": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {"type":"string"},
+          "method": {"type":"string"},
+          "path": {"type":"string"},
+          "controller": {"type":"string"},
+          "line": {"type":"integer"}
+        },
+        "required":["id","method","path"]
+      }
+    }
+  },
+  "required": ["endpoints"]
+}

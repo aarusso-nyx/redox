@@ -1,0 +1,53 @@
+{
+  "name": "redox",
+  "version": "0.1.0",
+  "description": "Reverse documentation engine (revdoc) - TS CLI with LLM-driven synthesis",
+  "main": "index.js",
+  "scripts": {
+    "test": "vitest run",
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx src/cli/index.ts --help",
+    "revdoc": "revdoc",
+    "revdoc\\:all": "revdoc all",
+    "revdoc\\:dev": "revdoc dev",
+    "revdoc\\:user": "revdoc user",
+    "revdoc\\:audit": "revdoc audit",
+    "revdoc\\:check": "revdoc check --gates schema,coverage,evidence,build,traceability",
+    "revdoc\\:render": "bash docs/scripts/render-mermaid.sh",
+    "lint": "eslint . --ext .ts --max-warnings 0"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "revdoc": "bin/revdoc"
+  },
+  "dependencies": {
+    "ajv": "^8.17.1",
+    "chalk": "^5.6.2",
+    "commander": "^14.0.2",
+    "dotenv": "^17.2.3",
+    "execa": "^9.6.0",
+    "fast-glob": "^3.3.3",
+    "madge": "^8.0.0",
+    "openai": "^6.8.1",
+    "ora": "^9.0.0",
+    "ts-morph": "^27.0.2",
+    "yaml": "^2.8.1",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "@typescript-eslint/eslint-plugin": "^8.46.4",
+    "@typescript-eslint/parser": "^8.46.4",
+    "@vitest/coverage-v8": "^4.0.8",
+    "eslint": "^9.39.1",
+    "markdown-link-check": "^3.14.1",
+    "mermaid-cli": "^0.2.4",
+    "prettier": "^3.6.2",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.8"
+  }
+}

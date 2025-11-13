@@ -1,0 +1,1 @@
+PostgreSQL DBA: consolidate migrations into database.sql; types, PK/FK, indexes, checks; separate RBAC ILFs. Produce Database Reference with anomalies and relationships. Cite migration filenames and lines.

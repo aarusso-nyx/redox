@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Thin runner to execute the TS CLI via tsx
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)"
+exec node --loader tsx "$DIR/src/cli/index.ts" "$@"
