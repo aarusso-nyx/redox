@@ -1,22 +1,159 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "ApiMap",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://revdoc.dev/schemas/ApiMap.schema.json",
+  "title": "Revdoc API Map",
   "type": "object",
+  "additionalProperties": false,
   "properties": {
+    "schemaVersion": { "type": "string", "const": "1.0" },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "sourceRepo": { "type": "string", "minLength": 1 },
+    "stack": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "backend": { "type": "string", "minLength": 1 },
+        "frontend": { "type": "string", "minLength": 1 },
+        "db": { "type": "string", "minLength": 1 }
+      },
+      "required": ["backend", "frontend", "db"]
+    },
     "endpoints": {
       "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "id": {"type":"string"},
-          "method": {"type":"string"},
-          "path": {"type":"string"},
-          "controller": {"type":"string"},
-          "line": {"type":"integer"}
-        },
-        "required":["id","method","path"]
-      }
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/Endpoint" }
     }
   },
-  "required": ["endpoints"]
+  "required": ["schemaVersion", "generatedAt", "endpoints"],
+  "$defs": {
+    "HttpMethod": {
+      "type": "string",
+      "enum": ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"]
+    },
+    "HttpStatus": {
+      "type": "integer",
+      "minimum": 100,
+      "maximum": 599
+    },
+    "MediaType": {
+      "type": "string",
+      "pattern": "^[^/\\s]+/[^/\\s]+$"
+    },
+    "Evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "startLine": { "type": "integer", "minimum": 1 },
+        "endLine": { "type": "integer", "minimum": 1 },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "note": { "type": "string" }
+      },
+      "required": ["path", "startLine", "endLine"]
+    },
+    "Param": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "in": { "type": "string", "enum": ["path", "query", "header", "cookie"] },
+        "required": { "type": "boolean" },
+        "type": { "type": "string" },
+        "example": {}
+      },
+      "required": ["name", "in"]
+    },
+    "ControllerRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "file": { "type": "string", "minLength": 1 },
+        "class": { "type": "string" },
+        "methodName": { "type": "string" },
+        "startLine": { "type": "integer", "minimum": 1 },
+        "endLine": { "type": "integer", "minimum": 1 }
+      },
+      "required": ["file"]
+    },
+    "PayloadShape": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "summary": { "type": "string" },
+        "jsonSchema": { "type": "object" },
+        "example": {}
+      }
+    },
+    "Request": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "contentTypes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/MediaType" },
+          "uniqueItems": true
+        },
+        "payload": { "$ref": "#/$defs/PayloadShape" }
+      }
+    },
+    "Response": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "status": { "$ref": "#/$defs/HttpStatus" },
+        "contentTypes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/MediaType" },
+          "uniqueItems": true
+        },
+        "payload": { "$ref": "#/$defs/PayloadShape" }
+      },
+      "required": ["status"]
+    },
+    "Auth": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "required": { "type": "boolean" },
+        "schemes": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "roles": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "guards": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+      }
+    },
+    "Validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "query": { "type": "array", "items": { "type": "string" } },
+        "params": { "type": "array", "items": { "type": "string" } },
+        "headers": { "type": "array", "items": { "type": "string" } },
+        "body": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "Endpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "method": { "$ref": "#/$defs/HttpMethod" },
+        "path": { "type": "string", "pattern": "^/" },
+        "summary": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "auth": { "$ref": "#/$defs/Auth" },
+        "params": { "type": "array", "items": { "$ref": "#/$defs/Param" }, "uniqueItems": true },
+        "request": { "$ref": "#/$defs/Request" },
+        "responses": { "type": "array", "items": { "$ref": "#/$defs/Response" } },
+        "controller": { "$ref": "#/$defs/ControllerRef" },
+        "validation": { "$ref": "#/$defs/Validation" },
+        "source": { "type": "string", "enum": ["openapi", "routes", "inferred"] },
+        "deprecated": { "type": "boolean", "default": false },
+        "evidence": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Evidence" },
+          "minItems": 1
+        }
+      },
+      "required": ["method", "path", "controller", "evidence"]
+    }
+  }
 }

@@ -1,12 +1,111 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "FunctionPoints",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://revdoc.dev/schemas/FpAppendix.schema.json",
+  "title": "Revdoc FP Appendix (Generous)",
   "type": "object",
+  "additionalProperties": false,
   "properties": {
-    "items": { "type":"array", "items":{"type":"object"} },
-    "ufp": {"type":"number"},
-    "vaf": {"type":"number"},
-    "afp": {"type":"number"}
+    "schemaVersion": { "type": "string", "const": "1.0" },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "policy": { "type": "string", "const": "generous" },
+    "items": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/FpItem" }
+    },
+    "gsc": {
+      "description": "General System Characteristics (14)",
+      "type": "array",
+      "minItems": 14,
+      "maxItems": 14,
+      "items": { "$ref": "#/$defs/GscItem" }
+    },
+    "ufp": { "type": "number", "minimum": 0 },
+    "vaf": { "type": "number" },
+    "afp": { "type": "number", "minimum": 0 },
+    "sensitivity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ufpLow": { "type": "number" },
+        "ufpHigh": { "type": "number" },
+        "afpLow": { "type": "number" },
+        "afpHigh": { "type": "number" },
+        "notes": { "type": "string" }
+      },
+      "required": ["ufpLow", "ufpHigh", "afpLow", "afpHigh"]
+    }
   },
-  "required": ["items"]
+  "required": ["schemaVersion", "generatedAt", "policy", "items", "gsc", "ufp", "vaf", "afp"],
+  "$defs": {
+    "Evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "startLine": { "type": "integer", "minimum": 1 },
+        "endLine": { "type": "integer", "minimum": 1 },
+        "note": { "type": "string" }
+      },
+      "required": ["path", "startLine", "endLine"]
+    },
+    "FpType": {
+      "type": "string",
+      "enum": ["EI", "EO", "EQ", "ILF", "EIF"]
+    },
+    "Complexity": {
+      "type": "string",
+      "enum": ["Low", "Average", "High"]
+    },
+    "FpItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "$ref": "#/$defs/FpType" },
+        "name": { "type": "string" },
+        "dets": { "type": "integer", "minimum": 0 },
+        "ftrs": { "type": "integer", "minimum": 0 },
+        "rets": { "type": "integer", "minimum": 0 },
+        "complexity": { "$ref": "#/$defs/Complexity" },
+        "rationale": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "relatedRoutes": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "relatedEndpoints": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "evidence": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Evidence" },
+          "minItems": 1
+        }
+      },
+      "required": ["type", "name", "complexity", "evidence"],
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "ILF" } }, "required": ["type"] },
+          "then": { "required": ["rets", "dets"] }
+        },
+        {
+          "if": { "properties": { "type": { "const": "EIF" } }, "required": ["type"] },
+          "then": { "required": ["rets", "dets"] }
+        },
+        {
+          "if": {
+            "properties": { "type": { "enum": ["EI", "EO", "EQ"] } },
+            "required": ["type"]
+          },
+          "then": { "required": ["dets", "ftrs"] }
+        }
+      ]
+    },
+    "GscItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "integer", "minimum": 1, "maximum": 14 },
+        "name": { "type": "string" },
+        "rating": { "type": "integer", "minimum": 0, "maximum": 5 },
+        "rationale": { "type": "string" }
+      },
+      "required": ["id", "name", "rating"]
+    }
+  }
 }

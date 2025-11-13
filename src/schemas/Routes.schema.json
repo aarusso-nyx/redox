@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://revdoc.dev/schemas/Routes.schema.json",
+  "title": "Revdoc Frontend Routes",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "type": "string", "const": "1.0" },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "framework": { "type": "string", "enum": ["angular", "react", "angularjs", "nextjs", "remix"] },
+    "routes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/Route" }
+    }
+  },
+  "required": ["schemaVersion", "generatedAt", "framework", "routes"],
+  "$defs": {
+    "Evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "startLine": { "type": "integer", "minimum": 1 },
+        "endLine": { "type": "integer", "minimum": 1 },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      },
+      "required": ["path", "startLine", "endLine"]
+    },
+    "ComponentRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "file": { "type": "string", "minLength": 1 },
+        "startLine": { "type": "integer", "minimum": 1 },
+        "endLine": { "type": "integer", "minimum": 1 }
+      },
+      "required": ["file"]
+    },
+    "ApiCallRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "method": { "type": "string", "enum": ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"] },
+        "path": { "type": "string", "pattern": "^/" },
+        "endpointId": { "type": "string" }
+      },
+      "required": ["method", "path"]
+    },
+    "Route": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "minLength": 1 },
+        "parentId": { "type": "string" },
+        "children": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "component": { "$ref": "#/$defs/ComponentRef" },
+        "lazy": { "type": "boolean" },
+        "guards": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "resolvers": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "params": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "dataKeys": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "roles": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "apiCalls": { "type": "array", "items": { "$ref": "#/$defs/ApiCallRef" } },
+        "evidence": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Evidence" },
+          "minItems": 1
+        }
+      },
+      "required": ["id", "path", "evidence"]
+    }
+  }
+}
