@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://revdoc.dev/schemas/CoverageMatrix.schema.json",
+  "$id": "https://redox.nyxk.dev/schemas/CoverageMatrix.schema.json",
   "title": "Revdoc Coverage Matrix",
   "type": "object",
   "additionalProperties": false,

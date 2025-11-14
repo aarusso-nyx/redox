@@ -14,8 +14,8 @@ import {
 } from "./runners.js";
 
 const program = new Command()
-  .name("revdoc")
-  .description("Reverse documentation engine (revdoc) - TS CLI with LLM-driven synthesis")
+  .name("redox")
+  .description("Reverse documentation engine (redox) - TS CLI with LLM-driven synthesis")
   .option("--stack <adapterId>", "force a stack adapter (e.g., laravel-postgres-angular)")
   .option("--backend <name>", "override backend (laravel|nestjs|spring)")
   .option("--frontend <name>", "override frontend (angular|react|angularjs)")
@@ -27,7 +27,9 @@ const program = new Command()
   .option("--gates <csv>", "gates to run", "schema,coverage,evidence,build,traceability")
   .option("--out <dir>", "output docs directory", "docs")
   .option("--facts-only", "stop after extraction (no prose)")
-  .option("--concurrency <n>", "parallel extractors", "4");
+  .option("--concurrency <n>", "parallel extractors", "4")
+  .option("--dry-run", "Plan actions without executing anything")
+  .option("--debug", "Verbose logging of actions, prompts, and gates");
 
 program.command("dev").description("Build developer docs").action(async () => runDev(program.opts()));
 program.command("user").description("Build user docs").action(async () => runUser(program.opts()));

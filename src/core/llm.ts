@@ -34,7 +34,7 @@ export async function askLLM(prompt: string, opts: LLMOpts) {
     input: [{ role: "user", content: prompt }],
     temperature,
     response_format: jsonSchema
-      ? { type: "json_schema", json_schema: { name: "revdoc", schema: jsonSchema, strict: true } }
+      ? { type: "json_schema", json_schema: { name: "redox", schema: jsonSchema, strict: true } }
       : undefined,
     tools,
   });

@@ -1,12 +1,12 @@
-AGENT.md — Revdoc Development Guide
+AGENT.md — Redox Development Guide
 
-This guide describes how we develop the revdoc engine itself: architecture, conventions, prompts, testing, quality gates, and release practices. It assumes macOS with Node ≥20, Git, and shell tools installed (see Prereqs below).
+This guide describes how we develop the redox engine itself: architecture, conventions, prompts, testing, quality gates, and release practices. It assumes macOS with Node ≥20, Git, and shell tools installed (see Prereqs below).
 
 ⸻
 
 1) Purpose & scope
 
-Revdoc inspects a codebase (web‑app stacks by default) and synthesizes comprehensive documentation with line‑level evidence. It produces three doc families:
+Redox inspects a codebase (web‑app stacks by default) and synthesizes comprehensive documentation with line‑level evidence. It produces three doc families:
 	•	Developer docs (overview, stack, architecture, DB/ERD, API & routes, CI/deploy, onboarding, styleguide, test strategy). The outlines follow the scope in our Overview/Stack and Architecture/CI briefs.
 	•	User docs (user guide, feature catalog, troubleshooting, glossary), aligned to the user‑manual brief.  ￼
 	•	Audit/assurance docs (FP report, RBAC matrix, threat model, observability, runbooks, DR, LGPD compliance, integrations, performance, SBOM, config reference), consistent with generous, evidence‑based FP counting.  ￼
@@ -22,7 +22,7 @@ Scripted spine, agentic leaves:
 	•	Agentic writers turn facts into human‑readable docs using role prompts + JSON‑schema outputs, under gates (schema, coverage, evidence, build, traceability). 100% mapping of routes/endpoints to user cases is a hard gate per the use‑cases brief.  ￼
 
 Core components
-	•	CLI runners: revdoc dev|user|audit|all|scan|extract|synthesize|render|check.
+	•	CLI runners: redox dev|user|audit|all|scan|extract|synthesize|render|check.
 	•	Orchestrator (Maestro): task DAG, context windows, “Idea Queue”, retries under schemas.
 	•	Extractors: repo scan, DB synthesizer, ERD builder, API mapper, FE router, dep‑graph.
 	•	Writers: developer docs, user docs, audit docs.
@@ -43,20 +43,20 @@ cp .env.example .env   # set OPENAI_API_KEY
 Common commands
 
 npm run dev                 # CLI help (tsx)
-npm run revdoc:dev          # developer docs profile
-npm run revdoc:user         # user docs profile
-npm run revdoc:audit        # audit/assurance profile
-npm run revdoc:all          # end-to-end (scan→extract→synthesize→render→check)
-npm run revdoc:check        # gates: schema, coverage, evidence, build, traceability
+npm run redox:dev           # developer docs profile
+npm run redox:user          # user docs profile
+npm run redox:audit         # audit/assurance profile
+npm run redox:all           # end-to-end (scan→extract→synthesize→render→check)
+npm run redox:check         # gates: schema, coverage, evidence, build, traceability
 ./docs/scripts/render-mermaid.sh   # ERD.mmd → ERD.png (Mermaid rules apply)
 
 Profiles & stack forcing
 
-revdoc dev --out docs/
-revdoc user --stack nestjs-postgres-react --no-detect
-revdoc audit --gates schema,coverage,evidence,build,traceability
-revdoc extract && revdoc synthesize --profile user
-revdoc dev --seeds ./revdoc.seeds --seed-merge project,stack,engine
+redox dev --out docs/
+redox user --stack nestjs-postgres-react --no-detect
+redox audit --gates schema,coverage,evidence,build,traceability
+redox extract && redox synthesize --profile user
+redox dev --seeds ./redox.seeds --seed-merge project,stack,engine
 
 
 ⸻
@@ -75,7 +75,7 @@ src/
   schemas/        # JSON schemas for structured outputs
 docs/
   scripts/        # render-mermaid.sh, link-check
-.revdoc/          # evidence.jsonl, caches, state
+.redox/          # evidence.jsonl, caches, state
 
 	•	Docs inventory (natural names): Repository Guidelines, Overview, Software Stack, Architecture Guide, Database Reference, ERD.mmd/ERD.png, API Map, Frontend Routes Map, Build/CI/Deploy Guide, Onboarding Quickstart, Development Styleguide, Test Strategy, User Guide, Feature Catalog, Troubleshooting Guide, Glossary, Function Point Report, RBAC Matrix, Security Threat Model, Observability Guide, Runbooks, Disaster Recovery, Compliance (LGPD), Integration Catalog, Performance Benchmarks, SBOM, Configuration Reference. The outlines for overview/stack, DB/ERD, architecture, use‑cases, FR/NFR, CI/deploy, user manual, and FP are based on the corresponding phase briefs.
 
@@ -98,13 +98,13 @@ For repository guidelines of target apps (e.g., Laravel/Filament/Postgres), we k
 	•	Models: Maestro = reasoning‑optimized; code tasks = code‑optimized; prose = general model. Low temperature: extract 0.1, tabulate 0.0, prose 0.3.
 	•	Evidence‑first prompts: every worker is constrained to cite file paths and, where feasible, line spans.
 	•	Cost control: bounded token budgets per stage; caches for stable extracts; schema‑constrained retries only.
-	•	Privacy: redact secrets; never send .env, credentials, or .revdoc/evidence.jsonl raw content to external models.
+	•	Privacy: redact secrets; never send .env, credentials, or .redox/evidence.jsonl raw content to external models.
 
 ⸻
 
 7) Prompts, seeds, and overlays
 	•	Core role prompts live under src/prompts/core/ (Maestro, DB synthesizer, ERD builder, API mapper, FE mapper, use‑cases, requirements, CI/deploy, user manual, FP counter). They encode the acceptance bar from the phase briefs—e.g., DB doc & DDL constraints and RBAC ILFs separation; ERD attribute/relationship rules; 100% route/endpoint coverage in use‑cases; FR/NFR structure; CI/deploy content; user‑manual requirements; generous FP policy.
-	•	Stack overlays in src/prompts/stacks/ refine extraction tips and examples per adapter (e.g., laravel-postgres-angular, nestjs-postgres-react). Overview/stack expectations (dirs, runtime assumptions, outputs under docs/) follow the overview/stack brief.  ￼
+	•	Stack overlays in src/prompts/stacks/ refine extraction tips and examples per adapter (e.g., laravel-postgres-angular, laravel-postgres-blade, laravel-postgres-react-blade, nestjs-postgres-react, nestjs-postgres-angular, express-knex-postgres-angular, java-spring-oracle-angularjs). Overview/stack expectations (dirs, runtime assumptions, outputs under docs/) follow the overview/stack brief.  ￼
 	•	Merging order: project → detected‑stack → core by default; configurable via --seed-merge.
 
 ⸻
@@ -122,7 +122,7 @@ For repository guidelines of target apps (e.g., Laravel/Filament/Postgres), we k
 	•	Unit: AST parsers, route mappers, migration synth; property checks (round‑trip parse → render → parse).
 	•	Golden files: sample repos (fixtures) → expected Database Reference.md, ERD.mmd, API Map.md, etc.
 	•	Gate tests: failing examples for each gate + fixes.
-	•	E2E: revdoc all on representative stacks; assert coverage=100% and ERD render success.
+	•	E2E: redox all on representative stacks; assert coverage=100% and ERD render success.
 	•	Docs integrity: markdown-link-check across docs/ after synthesis; CI must render ERD. ERD rules and CI tasks are defined in the ERD and CI/deploy briefs.
 
 ⸻
@@ -130,12 +130,12 @@ For repository guidelines of target apps (e.g., Laravel/Filament/Postgres), we k
 10) Extensibility (Stack Adapters)
 	•	Adapter contract: detect(), seeds(), extractors (api/db/fe/deps), optional writers overrides, extra gates.
 	•	DB dialect adapters: ingest Oracle/MySQL, normalize to canonical schema JSON; emit dialect‑specific snapshot; optionally translate to Postgres with fidelity notes (DB doc remains Postgres‑centric per our policy). DB doc method and constraints—migrations→DDL, ILF separation—follow the DB brief.  ￼
-	•	Listing & forcing: revdoc stacks to list adapters; --stack to force; --backend/--frontend/--db/--cloud to refine; --no-detect to disable detection.
+	•	Listing & forcing: redox stacks to list adapters; --stack to force; --backend/--frontend/--db/--cloud to refine; --no-detect to disable detection.
 
 ⸻
 
 11) CI & releases
-	•	CI pipeline: revdoc all + ERD render + link check; publish docs as artifacts; run unit/e2e tests; track coverage. CI/deploy documentation itself must remain prescriptive with runnable commands.  ￼
+	•	CI pipeline: redox all + ERD render + link check; publish docs as artifacts; run unit/e2e tests; track coverage. CI/deploy documentation itself must remain prescriptive with runnable commands.  ￼
 	•	Versioning: SemVer; changelog per Conventional Commits; include schema version bumps when prompt/schema contracts change.
 	•	Release QA: run on sample repos (at least Laravel/Postgres/Angular and NestJS/Postgres/React); verify that use‑case coverage, ERD rendering, and FP report satisfy their briefs.
 
@@ -152,7 +152,7 @@ For repository guidelines of target apps (e.g., Laravel/Filament/Postgres), we k
 	1.	Open an issue with context, acceptance criteria, and (if applicable) a sample repo.
 	2.	Branch name feat/…, fix/…, docs/…, refactor/….
 	3.	Add/adjust tests; update schemas/prompts and docs.
-	4.	Ensure npm run revdoc:check passes locally; include ERD render if touching DB/ERD code.  ￼
+	4.	Ensure npm run redox:check passes locally; include ERD render if touching DB/ERD code.  ￼
 	5.	Submit PR with rationale, screenshots/logs where relevant; link to issues.
 	6.	Two approvals: one for code, one for docs/UX if user‑facing text changes.
 

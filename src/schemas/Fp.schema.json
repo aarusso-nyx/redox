@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://revdoc.dev/schemas/FpAppendix.schema.json",
+  "$id": "https://redox.nyxk.dev/schemas/FpAppendix.schema.json",
   "title": "Revdoc FP Appendix (Generous)",
   "type": "object",
   "additionalProperties": false,

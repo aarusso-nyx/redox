@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://revdoc.dev/schemas/ApiMap.schema.json",
+  "$id": "https://redox.nyxk.dev/schemas/ApiMap.schema.json",
   "title": "Revdoc API Map",
   "type": "object",
   "additionalProperties": false,

@@ -1,19 +1,19 @@
 {
   "name": "redox",
   "version": "0.1.0",
-  "description": "Reverse documentation engine (revdoc) - TS CLI with LLM-driven synthesis",
+  "description": "Reverse documentation engine (redox) - TS CLI with LLM-driven synthesis",
   "main": "index.js",
   "scripts": {
     "test": "vitest run",
     "build": "tsc -p tsconfig.json",
     "dev": "tsx src/cli/index.ts --help",
-    "revdoc": "revdoc",
-    "revdoc\\:all": "revdoc all",
-    "revdoc\\:dev": "revdoc dev",
-    "revdoc\\:user": "revdoc user",
-    "revdoc\\:audit": "revdoc audit",
-    "revdoc\\:check": "revdoc check --gates schema,coverage,evidence,build,traceability",
-    "revdoc\\:render": "bash docs/scripts/render-mermaid.sh",
+    "redox": "redox",
+    "redox\\:all": "redox all",
+    "redox\\:dev": "redox dev",
+    "redox\\:user": "redox user",
+    "redox\\:audit": "redox audit",
+    "redox\\:check": "redox check --gates schema,coverage,evidence,build,traceability",
+    "redox\\:render": "bash docs/scripts/render-mermaid.sh",
     "lint": "eslint . --ext .ts --max-warnings 0"
   },
   "keywords": [],
@@ -21,7 +21,7 @@
   "license": "MIT",
   "type": "module",
   "bin": {
-    "revdoc": "bin/revdoc"
+    "redox": "bin/redox"
   },
   "dependencies": {
     "ajv": "^8.17.1",

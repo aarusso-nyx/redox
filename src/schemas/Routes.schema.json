@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://revdoc.dev/schemas/Routes.schema.json",
+  "$id": "https://redox.nyxk.dev/schemas/Routes.schema.json",
   "title": "Revdoc Frontend Routes",
   "type": "object",
   "additionalProperties": false,

@@ -31,7 +31,7 @@ async function runPhase(
     2,
   )}\n</CONTEXT>`;
 
-  const res = await askLLM(user, { model: process.env.REVDOC_MODEL_WRITER ?? "gpt-4.1" });
+  const res = await askLLM(user, { model: process.env.REDOX_MODEL_WRITER ?? "gpt-4.1" });
   const anyR: any = res as any;
   const text =
     anyR.output_text ?? anyR.output?.[0]?.content?.[0]?.text ?? JSON.stringify(anyR, null, 2);
@@ -83,4 +83,3 @@ export async function writeAuditDocsLLM(ctx: EngineContext, facts: Facts) {
     path.join(ctx.docsDir, "Function Point Report.md"),
   );
 }
-

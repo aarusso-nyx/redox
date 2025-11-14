@@ -19,31 +19,31 @@ async function withEngine<T>(label: string, opts: Opts, stage: (ctx: { adapterId
 }
 
 export async function runAll(opts: Opts) {
-  return withEngine("revdoc all", opts, ({ engine, adapterId, seedsDir }) =>
+  return withEngine("redox all", opts, ({ engine, adapterId, seedsDir }) =>
     orchestrate("all", { ...opts, engine, adapterId, seedsDir }),
   );
 }
 
 export async function runDev(opts: Opts) {
-  return withEngine("revdoc dev", opts, ({ engine, adapterId, seedsDir }) =>
+  return withEngine("redox dev", opts, ({ engine, adapterId, seedsDir }) =>
     orchestrate("dev", { ...opts, engine, adapterId, seedsDir }),
   );
 }
 
 export async function runUser(opts: Opts) {
-  return withEngine("revdoc user", opts, ({ engine, adapterId, seedsDir }) =>
+  return withEngine("redox user", opts, ({ engine, adapterId, seedsDir }) =>
     orchestrate("user", { ...opts, engine, adapterId, seedsDir }),
   );
 }
 
 export async function runAudit(opts: Opts) {
-  return withEngine("revdoc audit", opts, ({ engine, adapterId, seedsDir }) =>
+  return withEngine("redox audit", opts, ({ engine, adapterId, seedsDir }) =>
     orchestrate("audit", { ...opts, engine, adapterId, seedsDir }),
   );
 }
 
 export async function runScan(opts: Opts) {
-  const spinner = ora("revdoc scan").start();
+  const spinner = ora("redox scan").start();
   try {
     await detectAndLoadContext(opts);
     spinner.succeed("detected");
@@ -54,32 +54,32 @@ export async function runScan(opts: Opts) {
 }
 
 export async function runExtract(opts: Opts) {
-  return withEngine("revdoc extract", opts, ({ engine, adapterId, seedsDir }) =>
+  return withEngine("redox extract", opts, ({ engine, adapterId, seedsDir }) =>
     orchestrate("extract", { ...opts, engine, adapterId, seedsDir }),
   );
 }
 
 export async function runSynthesize(opts: Opts) {
-  const label = `revdoc synthesize (${opts.profile})`;
+  const label = `redox synthesize (${opts.profile})`;
   return withEngine(label, opts, ({ engine, adapterId, seedsDir }) =>
     orchestrate("synthesize", { ...opts, engine, adapterId, seedsDir }),
   );
 }
 
 export async function runRender(opts: Opts) {
-  return withEngine("revdoc render", opts, ({ engine, adapterId, seedsDir }) =>
+  return withEngine("redox render", opts, ({ engine, adapterId, seedsDir }) =>
     orchestrate("render", { ...opts, engine, adapterId, seedsDir }),
   );
 }
 
 export async function runCheck(opts: Opts) {
-  return withEngine("revdoc check", opts, ({ engine, adapterId, seedsDir }) =>
+  return withEngine("redox check", opts, ({ engine, adapterId, seedsDir }) =>
     orchestrate("check", { ...opts, engine, adapterId, seedsDir }),
   );
 }
 
 export async function runDoctor(_opts: Opts) {
-  const spinner = ora("revdoc doctor").start();
+  const spinner = ora("redox doctor").start();
   try {
     await checkEnvironment(console);
     spinner.succeed("checked");
