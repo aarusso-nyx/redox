@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import { config } from "dotenv";
 import { recordUsage } from "./usage.js";
+import { emitEngineEvent } from "./events.js";
 
 config();
 
@@ -68,6 +69,20 @@ export async function askLLM(prompt: string, opts: LLMOpts) {
   } catch {
     // usage recording is best-effort; ignore errors
   }
+
+  emitEngineEvent({
+    type: "llm-call",
+    model,
+    agent: opts.agent,
+    stage: opts.stage,
+    profile: opts.profile,
+    data: {
+      inputTokens,
+      outputTokens,
+      totalTokens,
+      meta: opts.meta ?? {},
+    },
+  });
 
   return res;
 }

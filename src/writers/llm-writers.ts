@@ -4,6 +4,7 @@ import type { EngineContext } from "../core/context.js";
 import { askLLM } from "../core/llm.js";
 import { loadPrompt } from "../core/promptLoader.js";
 import type { DbModel } from "../extractors/db.js";
+import { emitEngineEvent } from "../core/events.js";
 
 type Facts = {
   dbModel: DbModel;
@@ -74,6 +75,12 @@ async function runPhase(
 
   await fs.ensureDir(path.dirname(outFile));
   await fs.writeFile(outFile, text, "utf8");
+  emitEngineEvent({
+    type: "doc-written",
+    agent: promptFile,
+    file: outFile,
+    data: { bytes: text.length },
+  });
   if (opts.debug) {
     // eslint-disable-next-line no-console
     console.log("[redox][debug] LLM output written", { outFile, length: text.length });
@@ -158,6 +165,11 @@ ${JSON.stringify(
 
   await fs.ensureDir(path.dirname(outFile));
   await fs.writeJson(outFile, json, { spaces: 2 });
+  emitEngineEvent({
+    type: "artifact-written",
+    agent: `${promptFile}:json`,
+    file: outFile,
+  });
   if (opts.debug) {
     // eslint-disable-next-line no-console
     console.log("[redox][debug] LLM JSON output written", {

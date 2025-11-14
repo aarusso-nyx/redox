@@ -2,6 +2,7 @@ import fs from "fs-extra";
 import path from "node:path";
 import { execa } from "execa";
 import type { DbModel } from "../extractors/db.js";
+import { emitEngineEvent } from "../core/events.js";
 
 export function buildMermaidFromModel(model: DbModel): string {
   const lines: string[] = ["erDiagram"];
@@ -56,6 +57,7 @@ export async function writeDbAndErdDocs(root: string, docsDir: string, model: Db
   const pngPath = path.join(docsDir, "erd.png");
   const mmd = buildMermaidFromModel(model);
   await fs.writeFile(mmdPath, mmd, "utf8");
+  emitEngineEvent({ type: "artifact-written", file: mmdPath, data: { artifact: "erd.mmd" } });
 
   const renderScriptPath = path.join(scriptsDir, "render-mermaid.sh");
   await fs.writeFile(
@@ -79,4 +81,5 @@ echo "Rendered ${path.relative(root, pngPath)}"
     img: path.relative(root, pngPath),
   });
   await fs.writeFile(path.join(docsDir, "ERD.md"), erdMd, "utf8");
+  emitEngineEvent({ type: "doc-written", file: path.join(docsDir, "ERD.md") });
 }

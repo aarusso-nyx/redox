@@ -13,6 +13,7 @@ import { buildRbacArtifact } from "./rbacBuilder.js";
 import { buildLgpdMap } from "./lgpdBuilder.js";
 import { buildStackProfile } from "./stackProfile.js";
 import { buildDepGraph } from "./depGraphBuilder.js";
+import { emitEngineEvent, type EngineEvent } from "./events.js";
 import type { EngineContext } from "./context.js";
 import { connectByEnv, introspect, buildDDLFromMigrations, type DbModel } from "../extractors/db.js";
 import { laravelRoutes, type LaravelRoute } from "../extractors/api-laravel.js";
@@ -38,6 +39,7 @@ type OrchestratorOpts = {
   debug?: boolean;
   verbose?: boolean;
   quiet?: boolean;
+  onEvent?: (event: EngineEvent) => void;
 };
 
 let dbModelCache: DbModel | null = null;
@@ -379,6 +381,11 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
   const verbose = opts.verbose ?? opts.engine.flags.verbose;
   const logEnabled = debug || verbose;
 
+  const emit = (event: Omit<EngineEvent, "timestamp">) =>
+    emitEngineEvent({ stage, profile: opts.profile, ...event }, opts.onEvent);
+
+  emit({ type: "stage-start", data: { gates, dryRun } });
+
   if (stage === "check") {
     const root = opts.engine.root;
     const docsDir = opts.engine.docsDir;
@@ -418,6 +425,7 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
     });
 
     if (gates.includes("schema")) {
+      emit({ type: "gate-start", gate: "schema" });
       if (fs.existsSync(apiMapPath)) {
         logDebug(logEnabled, "Gate=schema (api-map.json)");
         if (!dryRun) {
@@ -488,9 +496,11 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
           schemaGate(dgSchema, dgData);
         }
       }
+      emit({ type: "gate-end", gate: "schema", success: true });
     }
 
     if (gates.includes("coverage") && coverageData) {
+      emit({ type: "gate-start", gate: "coverage" });
       const allRoutes = (coverageData.routes ?? []).map((id: string) => ({ id }));
       const allEndpoints = (coverageData.endpoints ?? []).map((id: string) => ({ id }));
       const links = (coverageData.links ?? []).map((l: any) => ({
@@ -506,31 +516,39 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
       if (!dryRun) {
         coverageGate(allRoutes, allEndpoints, links);
       }
+      emit({ type: "gate-end", gate: "coverage", success: true });
     }
 
     if (gates.includes("traceability") && coverageData) {
+      emit({ type: "gate-start", gate: "traceability" });
       logDebug(logEnabled, "Gate=traceability");
       if (!dryRun) {
         traceabilityGate(coverageData);
       }
+      emit({ type: "gate-end", gate: "traceability", success: true });
     }
 
     if (gates.includes("evidence")) {
+      emit({ type: "gate-start", gate: "evidence" });
       const evidenceFile = path.join(evidenceDir, "evidence.jsonl");
       logDebug(logEnabled, "Gate=evidence", { evidenceFile });
       if (!dryRun) {
         await evidenceFileGate(root, evidenceFile);
       }
+      emit({ type: "gate-end", gate: "evidence", success: true });
     }
 
     if (gates.includes("build")) {
+      emit({ type: "gate-start", gate: "build" });
       logDebug(logEnabled, "Gate=build", { root, docsDir });
       if (!dryRun) {
         await buildGate(root, docsDir);
       }
+      emit({ type: "gate-end", gate: "build", success: true });
     }
 
     if (fs.existsSync(rbacPath)) {
+      emit({ type: "gate-start", gate: "rbac" });
       const rbacData = await fs.readJson(rbacPath);
       const matrixRows =
         rbacData.roleBindings?.map((b: any) => ({
@@ -542,9 +560,11 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
       if (!dryRun && matrixRows.length) {
         rbacGate(matrixRows);
       }
+      emit({ type: "gate-end", gate: "rbac", success: true });
     }
 
     if (fs.existsSync(lgpdPath)) {
+      emit({ type: "gate-start", gate: "lgpd" });
       const lgpdData = await fs.readJson(lgpdPath);
       if (Array.isArray(lgpdData)) {
         logDebug(logEnabled, "Gate=lgpd", { entries: lgpdData.length });
@@ -555,18 +575,22 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
           lgpdGate(lgpdData);
         }
       }
+      emit({ type: "gate-end", gate: "lgpd", success: true });
     }
 
+    emit({ type: "stage-end", success: true });
     return;
   }
 
   if (stage === "extract") {
     await runExtract(opts.engine, dryRun, logEnabled);
+    emit({ type: "stage-end", success: true });
     return;
   }
 
   if (stage === "render") {
     await runRender(opts.engine, dryRun, logEnabled);
+    emit({ type: "stage-end", success: true });
     return;
   }
 
@@ -613,6 +637,7 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
       logDebug(logEnabled, "Stage=synthesize profile=audit", { dryRun });
       await writeAuditDocsLLM(opts.engine, facts, { dryRun, debug });
     }
+    emit({ type: "stage-end", success: true });
     return;
   }
 
@@ -645,6 +670,7 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
         logDebug(logEnabled, "Review written", { reviewer: key, path: outPath });
       }
     }
+    emit({ type: "stage-end", success: true });
     return;
   }
 
@@ -653,5 +679,6 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
     await orchestrate("synthesize", { ...opts, profile: stage === "all" ? "dev" : stage });
     await orchestrate("render", opts);
     await orchestrate("check", opts);
+    emit({ type: "stage-end", success: true });
   }
 }

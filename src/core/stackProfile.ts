@@ -4,6 +4,7 @@ import type { EngineContext } from "./context.js";
 import { askLLM } from "./llm.js";
 import { loadPrompt } from "./promptLoader.js";
 import { loadSchemaFile } from "./schemaLoader.js";
+import { emitEngineEvent } from "./events.js";
 
 export async function buildStackProfile(engine: EngineContext, opts: { dryRun: boolean; debug: boolean }) {
   const promptText = await loadPrompt("repo-scanner.md");
@@ -74,4 +75,10 @@ ${JSON.stringify(context, null, 2)}
     // eslint-disable-next-line no-console
     console.log("[redox][debug] stack profile written", { path: outPath });
   }
+
+  emitEngineEvent({
+    type: "artifact-written",
+    file: outPath,
+    data: { artifact: "stack-profile" },
+  });
 }

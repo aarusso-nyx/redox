@@ -4,6 +4,7 @@ import type { EngineContext } from "./context.js";
 import { tsDepGraph } from "../extractors/dep-graph.js";
 import { askLLM } from "./llm.js";
 import { loadPrompt } from "./promptLoader.js";
+import { emitEngineEvent } from "./events.js";
 
 export async function buildDepGraph(engine: EngineContext, opts: { dryRun: boolean; debug: boolean }) {
   const candidates = [
@@ -30,6 +31,11 @@ export async function buildDepGraph(engine: EngineContext, opts: { dryRun: boole
     const graph = await tsDepGraph(entry);
     await fs.ensureDir(engine.evidenceDir);
     await fs.writeJson(graphOut, graph, { spaces: 2 });
+    emitEngineEvent({
+      type: "artifact-written",
+      file: graphOut,
+      data: { artifact: "dep-graph" },
+    });
   }
 
   const promptText = await loadPrompt("dep-grapher.md");
@@ -77,5 +83,10 @@ ${JSON.stringify(context, null, 2)}
     // eslint-disable-next-line no-console
     console.log("[redox][debug] dep graph summary written", { path: mdOut });
   }
-}
 
+  emitEngineEvent({
+    type: "doc-written",
+    agent: "dep-grapher",
+    file: mdOut,
+  });
+}
