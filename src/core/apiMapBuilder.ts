@@ -3,12 +3,13 @@ import path from "node:path";
 import type { EngineContext } from "./context.js";
 import type { LaravelRoute } from "../extractors/api-laravel.js";
 import type { NestRoute } from "../extractors/api-nest.js";
+import type { ApiEndpoint, ApiMap, HttpMethod } from "./types.js";
 
 export function buildApiMapFromRoutes(
   routes: LaravelRoute[],
   nestRoutes: NestRoute[],
 ) {
-  const endpoints: any[] = [];
+  const endpoints: ApiEndpoint[] = [];
   const now = new Date().toISOString();
 
   const normalizePath = (uri: string) => `/${uri.replace(/^\/?/, "")}`;
@@ -16,7 +17,7 @@ export function buildApiMapFromRoutes(
   for (const r of routes) {
     const rawMethods = String(r.method ?? "GET").split("|");
     for (const raw of rawMethods) {
-      const method = raw.trim().toUpperCase();
+      const method = raw.trim().toUpperCase() as HttpMethod;
       if (!method) continue;
 
       const pathStr = normalizePath(r.uri ?? "/");
@@ -69,7 +70,7 @@ export function buildApiMapFromRoutes(
     const id = `${r.httpMethod} ${fullPath}`;
     endpoints.push({
       id,
-      method: r.httpMethod,
+      method: r.httpMethod as HttpMethod,
       path: fullPath,
       controller: {
         file: r.file,
@@ -89,11 +90,12 @@ export function buildApiMapFromRoutes(
 
   if (!endpoints.length) return null;
 
-  return {
+  const apiMap: ApiMap = {
     schemaVersion: "1.0",
     generatedAt: now,
     endpoints,
   };
+  return apiMap;
 }
 
 export async function writeApiMapArtifact(
@@ -112,4 +114,3 @@ export async function writeApiMapArtifact(
     });
   }
 }
-

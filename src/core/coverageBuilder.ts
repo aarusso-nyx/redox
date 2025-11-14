@@ -1,10 +1,14 @@
 import fs from "fs-extra";
 import path from "node:path";
 import type { EngineContext } from "./context.js";
+import type {
+  CoverageMatrix,
+  CoverageTriad,
+  UseCase,
+  UseCasesDoc,
+} from "./types.js";
 
-type Triad = { routeId: string; endpointId: string; useCaseId: string };
-
-function collectRefsFromUseCase(uc: any): {
+function collectRefsFromUseCase(uc: UseCase): {
   routeIds: Set<string>;
   endpointIds: Set<string>;
 } {
@@ -87,10 +91,10 @@ export async function buildCoverageMatrix(engine: EngineContext) {
   // Collect use cases from machine artifact (if present)
   const useCasesPath = path.join(dir, "use-cases.json");
   const useCasesSummary: { id: string; title?: string }[] = [];
-  const triads: Triad[] = [];
+  const triads: CoverageTriad[] = [];
 
   if (await fs.pathExists(useCasesPath)) {
-    const ucDoc = await fs.readJson(useCasesPath);
+    const ucDoc = (await fs.readJson(useCasesPath)) as UseCasesDoc;
     const cases = Array.isArray(ucDoc.cases) ? ucDoc.cases : [];
     for (const uc of cases) {
       if (!uc || typeof uc.id !== "string" || !uc.id) continue;
@@ -122,7 +126,7 @@ export async function buildCoverageMatrix(engine: EngineContext) {
     if (link.endpointId) unmappedEndpoints.delete(link.endpointId);
   }
 
-  const coverage = {
+  const coverage: CoverageMatrix = {
     schemaVersion: "1.0",
     generatedAt: now,
     routes: routesArr,

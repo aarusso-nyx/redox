@@ -16,6 +16,7 @@ import {
   runTranslate,
   runExport,
 } from "./runners.js";
+import { resolveOutDir } from "./optionUtils.js";
 import { printUsageReport } from "./usage.js";
 
 const program = new Command()
@@ -141,8 +142,7 @@ program
   .action(async (dir, cmd) => {
     const baseOpts = { ...program.opts(), dir };
     const tOpts = { ...cmd.opts() };
-    // Normalize option keys: Commander uses camelCase only for long options without dashes.
-    const outDir = (tOpts as any).outDir ?? (tOpts as any)["out-dir"];
+    const outDir = resolveOutDir(tOpts as any);
     await runTranslate({
       ...baseOpts,
       ...tOpts,
@@ -178,7 +178,7 @@ program
   .action(async (dir, cmd) => {
     const baseOpts = { ...program.opts(), dir };
     const eOpts = { ...cmd.opts() };
-    const outDir = (eOpts as any).outDir ?? (eOpts as any)["out-dir"];
+    const outDir = resolveOutDir(eOpts as any);
     await runExport({
       ...baseOpts,
       ...eOpts,

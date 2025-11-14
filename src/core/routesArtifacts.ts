@@ -1,6 +1,7 @@
 import fs from "fs-extra";
 import path from "node:path";
 import type { EngineContext } from "./context.js";
+import type { RoutesDoc, FrontendRoute } from "./types.js";
 
 export async function writeRoutesArtifacts(
   engine: EngineContext,
@@ -10,9 +11,9 @@ export async function writeRoutesArtifacts(
   await fs.ensureDir(engine.evidenceDir);
   const now = new Date().toISOString();
 
-  const reactRoutes = frontend?.react?.routes ?? [];
+  const reactRoutes: any[] = frontend?.react?.routes ?? [];
   if (reactRoutes.length) {
-    const routes = reactRoutes.map((r: any, idx: number) => ({
+    const routes: FrontendRoute[] = reactRoutes.map((r: any, idx: number) => ({
       id: `react:${r.path ?? idx}`,
       path: r.path ?? "/",
       parentId: undefined,
@@ -38,7 +39,7 @@ export async function writeRoutesArtifacts(
         },
       ],
     }));
-    const doc = {
+    const doc: RoutesDoc = {
       schemaVersion: "1.0",
       generatedAt: now,
       framework: "react",
@@ -55,9 +56,9 @@ export async function writeRoutesArtifacts(
     }
   }
 
-  const angular = frontend?.angular?.routes ?? [];
+  const angular: any[] = frontend?.angular?.routes ?? [];
   if (angular.length) {
-    const routes = angular.map((r: any, idx: number) => ({
+    const routes: FrontendRoute[] = angular.map((r: any, idx: number) => ({
       id: `angular:${r.path ?? idx}`,
       path: r.path ?? "/",
       parentId: undefined,
@@ -102,4 +103,3 @@ export async function writeRoutesArtifacts(
     }
   }
 }
-

@@ -8,6 +8,7 @@ import { traceabilityGate } from "../gates/traceability.js";
 import { rbacGate } from "../gates/rbac.js";
 import { lgpdGate } from "../gates/compliance.js";
 import { runArtifactBuilders } from "./artifactBuilders.js";
+import type { ApiMap, RoutesDoc, CoverageMatrix } from "./types.js";
 import { emitEngineEvent, type EngineEvent } from "./events.js";
 import type { EngineContext } from "./context.js";
 import {
@@ -69,8 +70,8 @@ type OrchestratorOpts = {
 let dbModelCache: DbModel | null = null;
 let routesCache: any[] | null = null;
 let frontendCache: any | null = null;
-let apiMapCache: any | null = null;
-let feRoutesCache: any | null = null;
+let apiMapCache: ApiMap | null = null;
+let feRoutesCache: { react?: RoutesDoc; angular?: RoutesDoc } | null = null;
 
 function logDebug(enabled: boolean, message: string, detail?: unknown) {
   if (!enabled) return;

@@ -5,15 +5,17 @@ import { askLLM } from "../core/llm.js";
 import { loadPrompt } from "../core/promptLoader.js";
 import type { DbModel } from "../extractors/db.js";
 import { emitEngineEvent } from "../core/events.js";
+import type { ApiMap, RoutesDoc, CoverageMatrix } from "../core/types.js";
 
 type Facts = {
   dbModel: DbModel;
   routes: any[];
   frontend: any;
-  apiMap?: any;
-  feRoutes?: any;
+  apiMap?: ApiMap | null;
+  feRoutes?: { react?: RoutesDoc; angular?: RoutesDoc } | null;
   stackProfile?: any;
   depGraph?: any;
+  coverageMatrix?: CoverageMatrix | null;
 };
 
 type MdPhaseConfig = {
