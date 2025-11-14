@@ -1,6 +1,17 @@
 #!/usr/bin/env node
 import { Command } from "commander";
-import { runAll, runDev, runUser, runAudit, runScan, runExtract, runSynthesize, runRender, runCheck } from "./runners.js";
+import {
+  runAll,
+  runDev,
+  runUser,
+  runAudit,
+  runScan,
+  runExtract,
+  runSynthesize,
+  runRender,
+  runCheck,
+  runDoctor,
+} from "./runners.js";
 
 const program = new Command()
   .name("revdoc")
@@ -18,27 +29,20 @@ const program = new Command()
   .option("--facts-only", "stop after extraction (no prose)")
   .option("--concurrency <n>", "parallel extractors", "4");
 
+program.command("dev").description("Build developer docs").action(async () => runDev(program.opts()));
+program.command("user").description("Build user docs").action(async () => runUser(program.opts()));
+program.command("audit").description("Build audit/assurance docs").action(async () => runAudit(program.opts()));
+program.command("all").description("Run end-to-end pipeline").action(async () => runAll(program.opts()));
+program.command("scan").description("Detect stack & map repo").action(async () => runScan(program.opts()));
+program.command("extract").description("Extract facts only").action(async () => runExtract(program.opts()));
 program
-  .command("dev").description("Build developer docs").action(async () => runDev(program.opts()));
-program
-  .command("user").description("Build user docs").action(async () => runUser(program.opts()));
-program
-  .command("audit").description("Build audit/assurance docs").action(async () => runAudit(program.opts()));
-program
-  .command("all").description("Run end-to-end pipeline").action(async () => runAll(program.opts()));
-program
-  .command("scan").description("Detect stack & map repo").action(async () => runScan(program.opts()));
-program
-  .command("extract").description("Extract facts only").action(async () => runExtract(program.opts()));
-program
-  .command("synthesize").description("Synthesize prose with gates")
+  .command("synthesize")
+  .description("Synthesize prose with gates")
   .option("--profile <dev|user|audit|all>", "doc profile", "dev")
   .action(async (cmd) => runSynthesize({ ...program.opts(), ...cmd.opts() }));
-program
-  .command("render").description("Render diagrams").action(async () => runRender(program.opts()));
-program
-  .command("check").description("Run acceptance gates")
-  .action(async () => runCheck(program.opts()));
+program.command("render").description("Render diagrams").action(async () => runRender(program.opts()));
+program.command("check").description("Run acceptance gates").action(async () => runCheck(program.opts()));
+program.command("doctor").description("Check environment and required tools").action(async () => runDoctor(program.opts()));
 
 program.parseAsync().catch((e) => {
   console.error(e);

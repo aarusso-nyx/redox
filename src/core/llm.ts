@@ -1,7 +1,24 @@
 import OpenAI from "openai";
-import { config } from "dotenv"; config();
+import { config } from "dotenv";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+config();
+
+let client: OpenAI | null = null;
+
+export function ensureOpenAIKey() {
+  if (!process.env.OPENAI_API_KEY && process.env.OPENAI_KEY) {
+    process.env.OPENAI_API_KEY = process.env.OPENAI_KEY;
+  }
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error("Missing OPENAI_API_KEY (alias: OPENAI_KEY)");
+  }
+}
+
+function getClient() {
+  ensureOpenAIKey();
+  if (!client) client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  return client;
+}
 
 export type LLMOpts = {
   model: string;
@@ -9,9 +26,10 @@ export type LLMOpts = {
   jsonSchema?: Record<string, unknown>;
   tools?: any[];
 };
+
 export async function askLLM(prompt: string, opts: LLMOpts) {
   const { model, temperature = 0.1, jsonSchema, tools } = opts;
-  return openai.responses.create({
+  return getClient().responses.create({
     model,
     input: [{ role: "user", content: prompt }],
     temperature,

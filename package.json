@@ -25,6 +25,8 @@
   },
   "dependencies": {
     "ajv": "^8.17.1",
+    "@babel/parser": "^7.26.2",
+    "@babel/traverse": "^7.25.9",
     "chalk": "^5.6.2",
     "commander": "^14.0.2",
     "dotenv": "^17.2.3",
@@ -33,6 +35,7 @@
     "madge": "^8.0.0",
     "openai": "^6.8.1",
     "ora": "^9.0.0",
+    "pg": "^8.13.0",
     "ts-morph": "^27.0.2",
     "yaml": "^2.8.1",
     "zod": "^4.1.12"

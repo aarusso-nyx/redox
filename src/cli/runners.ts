@@ -1,15 +1,90 @@
 import ora from "ora";
 import { detectAndLoadContext } from "../core/context.js";
+import { checkEnvironment } from "../core/env.js";
 import { orchestrate } from "../core/orchestrator.js";
 
 type Opts = Record<string, any>;
 
-export async function runAll(opts: Opts)      { const s=ora("revdoc all").start(); try { await orchestrate("all", opts); s.succeed("done"); } catch(e){ s.fail(String(e)); throw e; } }
-export async function runDev(opts: Opts)      { const s=ora("revdoc dev").start(); try { await orchestrate("dev", opts); s.succeed("done"); } catch(e){ s.fail(String(e)); throw e; } }
-export async function runUser(opts: Opts)     { const s=ora("revdoc user").start(); try { await orchestrate("user", opts); s.succeed("done"); } catch(e){ s.fail(String(e)); throw e; } }
-export async function runAudit(opts: Opts)    { const s=ora("revdoc audit").start(); try { await orchestrate("audit", opts); s.succeed("done"); } catch(e){ s.fail(String(e)); throw e; } }
-export async function runScan(opts: Opts)     { const s=ora("revdoc scan").start(); try { await detectAndLoadContext(opts); s.succeed("detected"); } catch(e){ s.fail(String(e)); throw e; } }
-export async function runExtract(opts: Opts)  { const s=ora("revdoc extract").start(); try { await orchestrate("extract", opts); s.succeed("extracted"); } catch(e){ s.fail(String(e)); throw e; } }
-export async function runSynthesize(opts: Opts){const s=ora(`revdoc synthesize (${opts.profile})`).start(); try { await orchestrate("synthesize", opts); s.succeed("synthesized"); } catch(e){ s.fail(String(e)); throw e; } }
-export async function runRender(opts: Opts)   { const s=ora("revdoc render").start(); try { await orchestrate("render", opts); s.succeed("rendered"); } catch(e){ s.fail(String(e)); throw e; } }
-export async function runCheck(opts: Opts)    { const s=ora("revdoc check").start(); try { await orchestrate("check", opts); s.succeed("passed"); } catch(e){ s.fail(String(e)); throw e; } }
+async function withEngine<T>(label: string, opts: Opts, stage: (ctx: { adapterId: string; seedsDir: string | null; engine: any }) => Promise<T>) {
+  const spinner = ora(label).start();
+  try {
+    const ctx = await detectAndLoadContext(opts);
+    const result = await stage(ctx);
+    spinner.succeed("done");
+    return result;
+  } catch (e) {
+    spinner.fail(String(e));
+    throw e;
+  }
+}
+
+export async function runAll(opts: Opts) {
+  return withEngine("revdoc all", opts, ({ engine, adapterId, seedsDir }) =>
+    orchestrate("all", { ...opts, engine, adapterId, seedsDir }),
+  );
+}
+
+export async function runDev(opts: Opts) {
+  return withEngine("revdoc dev", opts, ({ engine, adapterId, seedsDir }) =>
+    orchestrate("dev", { ...opts, engine, adapterId, seedsDir }),
+  );
+}
+
+export async function runUser(opts: Opts) {
+  return withEngine("revdoc user", opts, ({ engine, adapterId, seedsDir }) =>
+    orchestrate("user", { ...opts, engine, adapterId, seedsDir }),
+  );
+}
+
+export async function runAudit(opts: Opts) {
+  return withEngine("revdoc audit", opts, ({ engine, adapterId, seedsDir }) =>
+    orchestrate("audit", { ...opts, engine, adapterId, seedsDir }),
+  );
+}
+
+export async function runScan(opts: Opts) {
+  const spinner = ora("revdoc scan").start();
+  try {
+    await detectAndLoadContext(opts);
+    spinner.succeed("detected");
+  } catch (e) {
+    spinner.fail(String(e));
+    throw e;
+  }
+}
+
+export async function runExtract(opts: Opts) {
+  return withEngine("revdoc extract", opts, ({ engine, adapterId, seedsDir }) =>
+    orchestrate("extract", { ...opts, engine, adapterId, seedsDir }),
+  );
+}
+
+export async function runSynthesize(opts: Opts) {
+  const label = `revdoc synthesize (${opts.profile})`;
+  return withEngine(label, opts, ({ engine, adapterId, seedsDir }) =>
+    orchestrate("synthesize", { ...opts, engine, adapterId, seedsDir }),
+  );
+}
+
+export async function runRender(opts: Opts) {
+  return withEngine("revdoc render", opts, ({ engine, adapterId, seedsDir }) =>
+    orchestrate("render", { ...opts, engine, adapterId, seedsDir }),
+  );
+}
+
+export async function runCheck(opts: Opts) {
+  return withEngine("revdoc check", opts, ({ engine, adapterId, seedsDir }) =>
+    orchestrate("check", { ...opts, engine, adapterId, seedsDir }),
+  );
+}
+
+export async function runDoctor(_opts: Opts) {
+  const spinner = ora("revdoc doctor").start();
+  try {
+    await checkEnvironment(console);
+    spinner.succeed("checked");
+  } catch (e) {
+    spinner.fail(String(e));
+    throw e;
+  }
+}

@@ -1,5 +1,8 @@
 import fs from "fs";
-const E = (p:string,s:string)=>fs.writeFileSync(p,s);
+import type { DbModel } from "../extractors/db.js";
+import { writeDbAndErdDocs } from "./db-erd.js";
+
+const E = (p: string, s: string) => fs.writeFileSync(p, s);
 
 export function writeRepositoryGuidelines() {
   E("docs/Repository Guidelines.md", `# Repository Guidelines
@@ -40,15 +43,21 @@ Modules and boundaries, data flows, integrations, constraints, with code referen
 }
 
 export function writeDBAndERD() {
-  E("docs/Database Reference.md", `# Database Reference
+  E(
+    "docs/Database Reference.md",
+    `# Database Reference
 
 Exhaustive description of tables/columns/constraints/relationships; anomalies called out.
-A canonical PostgreSQL DDL is written as database.sql.`);
-  E("docs/ERD.mmd", `%% Mermaid ER diagram stub
+A canonical PostgreSQL DDL is written as database.sql.`,
+  );
+  E(
+    "docs/ERD.mmd",
+    `%% Mermaid ER diagram stub
 erDiagram
   PLACEHOLDER {
     string id PK
-  }`);
+  }`,
+  );
 }
 
 export function writeAPIAndRoutes() {
@@ -137,4 +146,8 @@ export function writeAllDev() {
   writeAPIAndRoutes();
   writeBuildCIDeploy();
   writeOnboardingAndQuality();
+}
+
+export async function writeDbAndErdFromModel(root: string, docsDir: string, model: DbModel) {
+  await writeDbAndErdDocs(root, docsDir, model);
 }

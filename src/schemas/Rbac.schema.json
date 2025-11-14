@@ -1,14 +1,194 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "RBAC",
-  "type": "array",
-  "items": {
-    "type": "object",
-    "properties": {
-      "role": {"type":"string"},
-      "permission": {"type":"string"},
-      "evidence": {"type":"array","items":{"type":"string"}}
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://revdoc.dev/schemas/RBAC.schema.json",
+  "title": "Revdoc RBAC Matrix",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "type": "string", "const": "1.0" },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "sourceRepo": { "type": "string", "minLength": 1 },
+    "stack": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "backend": { "type": "string" },
+        "frontend": { "type": "string" },
+        "db": { "type": "string" }
+      }
     },
-    "required": ["role","permission","evidence"]
+    "rbacIlfTables": {
+      "description": "RBAC ILFs must be called out explicitly for DB/docs/FP (e.g., roles, permissions, role_has_permissions…).",
+      "type": "array",
+      "items": { "type": "string" },
+      "uniqueItems": true
+    },
+    "roles": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/Role" },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "permissions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/Permission" },
+      "minItems": 1
+    },
+    "roleBindings": {
+      "description": "Direct role→permission bindings (effective permissions may also come from inheritance).",
+      "type": "array",
+      "items": { "$ref": "#/$defs/RoleBinding" }
+    },
+    "bindings": {
+      "description": "Resource bindings for permissions (endpoints/routes/entities).",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "endpointBindings": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/EndpointBinding" }
+        },
+        "routeBindings": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/RouteBinding" }
+        },
+        "entityBindings": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/EntityBinding" }
+        }
+      },
+      "required": ["endpointBindings", "routeBindings", "entityBindings"]
+    },
+    "defaults": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "unknownEndpointPolicy": { "type": "string", "enum": ["deny", "allow"] },
+        "unknownRoutePolicy": { "type": "string", "enum": ["deny", "allow"] }
+      },
+      "default": { "unknownEndpointPolicy": "deny", "unknownRoutePolicy": "deny" }
+    },
+    "unmapped": {
+      "description": "Gating helper: anything without a role or permission mapping.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "rolesWithoutPermissions": { "type": "array", "items": { "type": "string" }, "uniqueItems": true, "default": [] },
+        "permissionsWithoutBindings": { "type": "array", "items": { "type": "string" }, "uniqueItems": true, "default": [] },
+        "endpointsWithoutRole": { "type": "array", "items": { "type": "string" }, "uniqueItems": true, "default": [] },
+        "routesWithoutRole": { "type": "array", "items": { "type": "string" }, "uniqueItems": true, "default": [] }
+      },
+      "required": ["rolesWithoutPermissions", "permissionsWithoutBindings", "endpointsWithoutRole", "routesWithoutRole"]
+    },
+    "stats": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "roleCount": { "type": "integer", "minimum": 0 },
+        "permissionCount": { "type": "integer", "minimum": 0 },
+        "endpointBindingCount": { "type": "integer", "minimum": 0 },
+        "routeBindingCount": { "type": "integer", "minimum": 0 },
+        "entityBindingCount": { "type": "integer", "minimum": 0 }
+      }
+    }
+  },
+  "required": ["schemaVersion", "generatedAt", "roles", "permissions", "bindings", "unmapped"],
+  "$defs": {
+    "Evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "startLine": { "type": "integer", "minimum": 1 },
+        "endLine": { "type": "integer", "minimum": 1 },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "note": { "type": "string" }
+      },
+      "required": ["path", "startLine", "endLine"]
+    },
+    "Role": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "inherits": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "evidence": { "type": "array", "items": { "$ref": "#/$defs/Evidence" } }
+      },
+      "required": ["id"]
+    },
+    "Permission": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "actions": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        },
+        "constraints": {
+          "description": "Optional attribute-based conditions (e.g., ownership).",
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "evidence": { "type": "array", "items": { "$ref": "#/$defs/Evidence" } }
+      },
+      "required": ["id"]
+    },
+    "RoleBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "roleId": { "type": "string" },
+        "permissionId": { "type": "string" },
+        "effect": { "type": "string", "enum": ["allow", "deny"], "default": "allow" },
+        "evidence": { "type": "array", "items": { "$ref": "#/$defs/Evidence" } }
+      },
+      "required": ["roleId", "permissionId"]
+    },
+    "EndpointBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "permissionId": { "type": "string" },
+        "endpointId": { "type": "string" },
+        "methods": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"] },
+          "uniqueItems": true
+        },
+        "evidence": { "type": "array", "items": { "$ref": "#/$defs/Evidence" } }
+      },
+      "required": ["permissionId", "endpointId"]
+    },
+    "RouteBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "permissionId": { "type": "string" },
+        "routeId": { "type": "string" },
+        "evidence": { "type": "array", "items": { "$ref": "#/$defs/Evidence" } }
+      },
+      "required": ["permissionId", "routeId"]
+    },
+    "EntityBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "permissionId": { "type": "string" },
+        "entity": { "type": "string", "description": "Domain entity or table name" },
+        "operations": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["create", "read", "update", "delete", "export", "import"] },
+          "uniqueItems": true
+        },
+        "evidence": { "type": "array", "items": { "$ref": "#/$defs/Evidence" } }
+      },
+      "required": ["permissionId", "entity"]
+    }
   }
 }
