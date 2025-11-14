@@ -34,4 +34,3 @@ export async function buildGate(root: string, docsDir: string) {
     throw new Error(`BuildGate failed:\n${errors.join("\n")}`);
   }
 }
-

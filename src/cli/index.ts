@@ -12,6 +12,7 @@ import {
   runCheck,
   runDoctor,
 } from "./runners.js";
+import { printUsageReport } from "./usage.js";
 
 const program = new Command()
   .name("redox")
@@ -25,26 +26,73 @@ const program = new Command()
   .option("--seeds <dir>", "project seeds directory")
   .option("--seed-merge <order>", "seed merge order (project,stack,engine)", "project,stack,engine")
   .option("--gates <csv>", "gates to run", "schema,coverage,evidence,build,traceability")
-  .option("--out <dir>", "output docs directory", "docs")
+  .option("--out <dir>", "output directory (default: <dir>/redox)")
   .option("--facts-only", "stop after extraction (no prose)")
   .option("--concurrency <n>", "parallel extractors", "4")
   .option("--dry-run", "Plan actions without executing anything")
-  .option("--debug", "Verbose logging of actions, prompts, and gates");
+  .option("--debug", "Verbose logging of actions, prompts, and gates")
+  .option("--verbose", "More verbose logging for stages and gates")
+  .option("--quiet", "Minimal output (no spinners, only errors)");
 
-program.command("dev").description("Build developer docs").action(async () => runDev(program.opts()));
-program.command("user").description("Build user docs").action(async () => runUser(program.opts()));
-program.command("audit").description("Build audit/assurance docs").action(async () => runAudit(program.opts()));
-program.command("all").description("Run end-to-end pipeline").action(async () => runAll(program.opts()));
-program.command("scan").description("Detect stack & map repo").action(async () => runScan(program.opts()));
-program.command("extract").description("Extract facts only").action(async () => runExtract(program.opts()));
+program
+  .command("dev")
+  .description("Build developer docs")
+  .argument("[dir]", "target project directory", ".")
+  .action(async (dir) => runDev({ ...program.opts(), dir }));
+program
+  .command("user")
+  .description("Build user docs")
+  .argument("[dir]", "target project directory", ".")
+  .action(async (dir) => runUser({ ...program.opts(), dir }));
+program
+  .command("audit")
+  .description("Build audit/assurance docs")
+  .argument("[dir]", "target project directory", ".")
+  .action(async (dir) => runAudit({ ...program.opts(), dir }));
+program
+  .command("all")
+  .description("Run end-to-end pipeline")
+  .argument("[dir]", "target project directory", ".")
+  .action(async (dir) => runAll({ ...program.opts(), dir }));
+program
+  .command("scan")
+  .description("Detect stack & map repo")
+  .argument("[dir]", "target project directory", ".")
+  .action(async (dir) => runScan({ ...program.opts(), dir }));
+program
+  .command("extract")
+  .description("Extract facts only")
+  .argument("[dir]", "target project directory", ".")
+  .action(async (dir) => runExtract({ ...program.opts(), dir }));
 program
   .command("synthesize")
   .description("Synthesize prose with gates")
+  .argument("[dir]", "target project directory", ".")
   .option("--profile <dev|user|audit|all>", "doc profile", "dev")
-  .action(async (cmd) => runSynthesize({ ...program.opts(), ...cmd.opts() }));
-program.command("render").description("Render diagrams").action(async () => runRender(program.opts()));
-program.command("check").description("Run acceptance gates").action(async () => runCheck(program.opts()));
-program.command("doctor").description("Check environment and required tools").action(async () => runDoctor(program.opts()));
+  .action(async (dir, cmd) => runSynthesize({ ...program.opts(), ...cmd.opts(), dir }));
+program
+  .command("render")
+  .description("Render diagrams")
+  .argument("[dir]", "target project directory", ".")
+  .action(async (dir) => runRender({ ...program.opts(), dir }));
+program
+  .command("check")
+  .description("Run acceptance gates")
+  .argument("[dir]", "target project directory", ".")
+  .action(async (dir) => runCheck({ ...program.opts(), dir }));
+program
+  .command("review")
+  .description("Run architecture review")
+  .argument("[dir]", "target project directory", ".")
+  .action(async (dir) => orchestrate("review", { ...(program.opts() as any), dir }));
+program
+  .command("doctor")
+  .description("Check environment and required tools")
+  .action(async () => runDoctor(program.opts()));
+program
+  .command("usage")
+  .description("Print token usage report from .redox/usage.jsonl")
+  .action(async () => printUsageReport());
 
 program.parseAsync().catch((e) => {
   console.error(e);

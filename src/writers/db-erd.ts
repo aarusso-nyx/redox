@@ -3,40 +3,6 @@ import path from "node:path";
 import { execa } from "execa";
 import type { DbModel } from "../extractors/db.js";
 
-export function renderDatabaseMd(model: DbModel, provenance: string[]): string {
-  const lines: string[] = [];
-  lines.push("# Database Reference");
-  lines.push("");
-  const schemaCount = new Set(model.tables.map((t) => t.schema)).size;
-  lines.push(`**Schemas**: ${schemaCount}  `);
-  lines.push(`**Tables**: ${model.tables.length}`);
-  lines.push("");
-
-  for (const t of model.tables.sort((a, b) => (a.schema + a.name).localeCompare(b.schema + b.name))) {
-    lines.push(`## ${t.schema}.${t.name}`);
-    lines.push("");
-    if (!t.columns.length) {
-      lines.push("_Columns unknown (no live DB columns found)._");
-      lines.push("");
-      continue;
-    }
-    lines.push("| Column | Type | Nullable | Default |");
-    lines.push("|---|---|:---:|---|");
-    for (const c of t.columns) {
-      lines.push(
-        `| \`${c.name}\` | \`${c.type}\` | ${c.nullable ? "Yes" : "No"} | ${
-          c.default ? `\`${c.default}\`` : ""
-        } |`,
-      );
-    }
-    lines.push("");
-  }
-
-  lines.push("---");
-  lines.push(`_Provenance: ${provenance.join(", ")}_`);
-  return lines.join("\n");
-}
-
 export function buildMermaidFromModel(model: DbModel): string {
   const lines: string[] = ["erDiagram"];
   for (const t of model.tables) {
@@ -86,9 +52,6 @@ export async function writeDbAndErdDocs(root: string, docsDir: string, model: Db
   await fs.ensureDir(diagramsDir);
   await fs.ensureDir(scriptsDir);
 
-  const dbMd = renderDatabaseMd(model, ["PostgreSQL catalogs"]);
-  await fs.writeFile(path.join(docsDir, "Database Reference.md"), dbMd, "utf8");
-
   const mmdPath = path.join(diagramsDir, "erd.mmd");
   const pngPath = path.join(docsDir, "erd.png");
   const mmd = buildMermaidFromModel(model);
@@ -117,4 +80,3 @@ echo "Rendered ${path.relative(root, pngPath)}"
   });
   await fs.writeFile(path.join(docsDir, "ERD.md"), erdMd, "utf8");
 }
-

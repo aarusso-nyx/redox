@@ -127,7 +127,7 @@ export async function introspect(client: any): Promise<DbModel> {
   return { tables: [...tableMap.values()], fks: fkList, indexes: idxList };
 }
 
-export async function buildDDLFromMigrations(root = ".") {
+export async function buildDDLFromMigrations(root = ".", outDir = ".") {
   // Run Laravel migrations if a Laravel app is present
   if (fs.existsSync(`${root}/artisan`)) {
     try {
@@ -141,7 +141,8 @@ export async function buildDDLFromMigrations(root = ".") {
   try {
     const dbName = process.env.PGDATABASE ?? "";
     const { stdout } = await execa("pg_dump", ["--schema-only", dbName], { cwd: root });
-    await fs.writeFile("database.sql", stdout, "utf8");
+    const ddlPath = outDir ? `${outDir}/database.sql` : "database.sql";
+    await fs.writeFile(ddlPath, stdout, "utf8");
   } catch {
     // pg_dump not available or failed; caller can proceed with DbModel only
   }

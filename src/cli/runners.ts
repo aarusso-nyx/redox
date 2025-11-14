@@ -5,15 +5,20 @@ import { orchestrate } from "../core/orchestrator.js";
 
 type Opts = Record<string, any>;
 
-async function withEngine<T>(label: string, opts: Opts, stage: (ctx: { adapterId: string; seedsDir: string | null; engine: any }) => Promise<T>) {
-  const spinner = ora(label).start();
+async function withEngine<T>(
+  label: string,
+  opts: Opts,
+  stage: (ctx: { adapterId: string; seedsDir: string | null; engine: any }) => Promise<T>,
+) {
+  const useSpinner = !opts.quiet;
+  const spinner = useSpinner ? ora(label).start() : null;
   try {
     const ctx = await detectAndLoadContext(opts);
     const result = await stage(ctx);
-    spinner.succeed("done");
+    if (spinner) spinner.succeed("done");
     return result;
   } catch (e) {
-    spinner.fail(String(e));
+    if (spinner) spinner.fail(String(e));
     throw e;
   }
 }
@@ -43,12 +48,13 @@ export async function runAudit(opts: Opts) {
 }
 
 export async function runScan(opts: Opts) {
-  const spinner = ora("redox scan").start();
+  const useSpinner = !opts.quiet;
+  const spinner = useSpinner ? ora("redox scan").start() : null;
   try {
     await detectAndLoadContext(opts);
-    spinner.succeed("detected");
+    if (spinner) spinner.succeed("detected");
   } catch (e) {
-    spinner.fail(String(e));
+    if (spinner) spinner.fail(String(e));
     throw e;
   }
 }
