@@ -1,4 +1,4 @@
-import fs from "fs";
+import fs from "node:fs";
 import path from "node:path";
 import { createHash } from "crypto";
 
@@ -19,9 +19,9 @@ function getEvidenceDir() {
   return process.env.REDOX_EVIDENCE_DIR || path.join("redox", ".redox");
 }
 
-export function saveEvidence(e: Evidence) {
+export async function saveEvidence(e: Evidence) {
   const dir = getEvidenceDir();
   const file = path.join(dir, "evidence.jsonl");
-  fs.mkdirSync(dir, { recursive: true });
-  fs.appendFileSync(file, JSON.stringify(e) + "\n");
+  await fs.promises.mkdir(dir, { recursive: true });
+  await fs.promises.appendFile(file, JSON.stringify(e) + "\n");
 }

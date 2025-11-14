@@ -76,6 +76,7 @@ export async function detectAndLoadContext(opts: any): Promise<{
   // Expose paths for helpers that don't receive EngineContext directly
   process.env.REDOX_EVIDENCE_DIR = evidenceDir;
   process.env.REDOX_USAGE_DIR = evidenceDir;
+  process.env.REDOX_IDEA_DIR = evidenceDir;
 
   return {
     adapterId: opts.stack ?? "auto",

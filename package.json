@@ -1,6 +1,6 @@
 {
   "name": "redox",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Reverse documentation engine (redox) - TS CLI with LLM-driven synthesis",
   "main": "index.js",
   "scripts": {

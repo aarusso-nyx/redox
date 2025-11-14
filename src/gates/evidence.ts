@@ -1,9 +1,9 @@
-import fs from "fs";
+import fs from "node:fs";
 import path from "node:path";
 import { sha256, type Evidence } from "../core/evidence.js";
 
 export async function evidenceFileGate(root: string, evidenceFile: string) {
-  if (!fs.existsSync(evidenceFile)) {
+  if (!(await fileExists(evidenceFile))) {
     return;
   }
 
@@ -29,7 +29,7 @@ export async function evidenceFileGate(root: string, evidenceFile: string) {
 
   for (const ev of evidences) {
     const absPath = path.resolve(root, ev.path);
-    if (!fs.existsSync(absPath)) {
+    if (!(await fileExists(absPath))) {
       errors.push(`Missing evidence file: ${ev.path}`);
       continue;
     }
@@ -56,5 +56,14 @@ export async function evidenceFileGate(root: string, evidenceFile: string) {
 
   if (errors.length) {
     throw new Error(`EvidenceGate failed:\n${errors.join("\n")}`);
+  }
+}
+
+async function fileExists(targetPath: string): Promise<boolean> {
+  try {
+    await fs.promises.access(targetPath);
+    return true;
+  } catch {
+    return false;
   }
 }

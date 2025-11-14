@@ -4,21 +4,18 @@ import { cruise } from "dependency-cruiser";
  * dependency-cruiser based dependency graph extractor
  */
 export async function tsDepGraph(entry: string) {
-  const result = await cruise(
-    [entry],
-    {
-      exclude: {
-        path: ["node_modules", "dist", "\\.revdoc"],
-      },
-      includeOnly: entry ? [entry] : undefined,
-      tsConfig: { fileName: "./tsconfig.json" },
-      combinedDependencies: true,
-      doNotFollow: {
-        path: "node_modules",
-      },
-      outputType: "json",
+  const result = await cruise([entry], {
+    exclude: {
+      path: ["node_modules", "dist", "\\.revdoc"],
     },
-  );
+    includeOnly: entry ? [entry] : undefined,
+    tsConfig: { fileName: "./tsconfig.json" },
+    combinedDependencies: true,
+    doNotFollow: {
+      path: "node_modules",
+    },
+    outputType: "json",
+  });
 
   if (result.output) {
     const parsed =

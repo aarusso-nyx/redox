@@ -75,7 +75,7 @@ export async function exportDocs(opts: ExportOptions) {
   const {
     engine,
     formats: formatsCsv,
-    srcDir = "docs",
+    srcDir,
     outDir,
     include = "*.md",
     exclude,
@@ -86,9 +86,11 @@ export async function exportDocs(opts: ExportOptions) {
   } = opts;
 
   const root = engine.root;
+  // Default convention: export from ./redox when --src is omitted.
+  const effectiveSrcDir = srcDir ?? "redox";
   const formats = parseFormats(formatsCsv);
-  const absSrc = path.resolve(root, srcDir);
-  const absOut = path.resolve(root, outDir ?? srcDir);
+  const absSrc = path.resolve(root, effectiveSrcDir);
+  const absOut = path.resolve(root, outDir ?? effectiveSrcDir);
 
   const patterns = [include];
   const ignore = exclude ? [exclude] : [];

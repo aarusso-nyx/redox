@@ -148,7 +148,7 @@ export async function introspect(client: any): Promise<DbModel> {
 
 export async function buildDDLFromMigrations(root = ".", outDir = ".") {
   // Run Laravel migrations if a Laravel app is present
-  if (fs.existsSync(`${root}/artisan`)) {
+  if (await fs.pathExists(`${root}/artisan`)) {
     try {
       await execa("php", ["artisan", "migrate", "--force"], { cwd: root });
     } catch {

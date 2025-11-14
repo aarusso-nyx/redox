@@ -20,7 +20,7 @@ export async function translateDocs(opts: TranslateOptions) {
   const {
     engine,
     lang,
-    srcDir = "docs",
+    srcDir,
     outDir,
     include = "*.md",
     exclude,
@@ -29,8 +29,11 @@ export async function translateDocs(opts: TranslateOptions) {
   } = opts;
 
   const root = engine.root;
-  const absSrc = path.resolve(root, srcDir);
-  const absOut = path.resolve(root, outDir ?? path.join(srcDir, lang));
+  // Default convention: translate from ./redox when --src is omitted.
+  const effectiveSrcDir = srcDir ?? "redox";
+  const effectiveOutDir = outDir ?? path.join(effectiveSrcDir, lang);
+  const absSrc = path.resolve(root, effectiveSrcDir);
+  const absOut = path.resolve(root, effectiveOutDir);
 
   const patterns = [include];
   const ignore = exclude ? [exclude] : [];
@@ -89,8 +92,9 @@ ${src}
       model:
         process.env.REDOX_MODEL_TRANSLATOR ??
         process.env.REDOX_MODEL_WRITER ??
-        "chatgpt-5.1",
-      temperature: 0.1,
+        "gpt-5.1",
+      reasoningEffort: "high",
+      verbosity: "medium",
       agent: `translator/${lang}`,
       stage: "translate",
       profile: undefined,

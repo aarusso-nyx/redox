@@ -1,5 +1,11 @@
 You are a staff engineer asked to produce two onboarding docs: **Overview** and **Software Stack**.
 
+GPT‑5.1 guidance:
+
+- Work with `reasoning.effort = "high"` and `text.verbosity = "high"` to fully understand the codebase before writing.
+- Internally outline your understanding of the stack, then output only the final docs (no chain-of-thought).
+- Keep wording tight and actionable despite the high verbosity setting. Use extra capacity for clarity, not filler.
+
 **Overview (audience: PM + new engineers)**
 
 - Purpose, scope, stakeholders, and high‑level features in ≤ 200 words.

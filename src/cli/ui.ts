@@ -4,7 +4,11 @@ import path from "node:path";
 import { detectAndLoadContext } from "../core/context.js";
 import { orchestrate } from "../core/orchestrator.js";
 import { runMaestro } from "../core/maestro.js";
-import { setEngineEventListener, type EngineEvent } from "../core/events.js";
+import {
+  setEngineEventListener,
+  emitEngineEvent,
+  type EngineEvent,
+} from "../core/events.js";
 
 type OrchestratorMode = "scripted" | "maestro";
 type MainView =
@@ -12,9 +16,12 @@ type MainView =
   | "usage"
   | "agentsTop"
   | "agentsLog"
+  | "logs"
   | "progress"
   | "config"
-  | "flags";
+  | "flags"
+  | "ideas"
+  | "evidence";
 
 type RunConfig = {
   dir: string;
@@ -43,12 +50,15 @@ type UiState = {
   running: boolean;
   lastError: string | null;
   currentStage: string | null;
+  runStartedAt: number | null;
+  lastRunDurationMs: number | null;
   events: EngineEvent[];
   llmEvents: EngineEvent[];
   agentStats: Record<string, AgentStats>;
   docs: Set<string>;
   artifacts: Set<string>;
   gatesStatus: Record<string, { started: number; ended: number }>;
+  completedStages: Set<string>;
 };
 
 function createInitialState(dir: string): UiState {
@@ -70,12 +80,15 @@ function createInitialState(dir: string): UiState {
     running: false,
     lastError: null,
     currentStage: null,
+    runStartedAt: null,
+    lastRunDurationMs: null,
     events: [],
     llmEvents: [],
     agentStats: {},
     docs: new Set(),
     artifacts: new Set(),
     gatesStatus: {},
+    completedStages: new Set(),
   };
 }
 
@@ -88,6 +101,15 @@ function updateStateFromEvent(state: UiState, ev: EngineEvent) {
   }
   if (ev.type === "stage-end") {
     state.currentStage = null;
+    if (
+      ev.stage === "extract" ||
+      ev.stage === "synthesize" ||
+      ev.stage === "render" ||
+      ev.stage === "check" ||
+      ev.stage === "review"
+    ) {
+      state.completedStages.add(ev.stage);
+    }
   }
 
   if (ev.type === "gate-start" && ev.gate) {
@@ -134,6 +156,29 @@ async function main() {
   const dirFromArg =
     process.argv[2] && !process.argv[2].startsWith("-") ? process.argv[2] : ".";
   const state = createInitialState(dirFromArg);
+
+  // Capture all console output and route it through the engine event bus so
+  // logs are rendered inside the central panel instead of leaking to the TTY.
+  const originalLog = console.log;
+  const originalError = console.error;
+  console.log = (...args: unknown[]) => {
+    const message = args
+      .map((a) => (typeof a === "string" ? a : JSON.stringify(a)))
+      .join(" ");
+    emitEngineEvent({
+      type: "log",
+      data: { level: "info", message },
+    });
+  };
+  console.error = (...args: unknown[]) => {
+    const message = args
+      .map((a) => (typeof a === "string" ? a : JSON.stringify(a)))
+      .join(" ");
+    emitEngineEvent({
+      type: "log",
+      data: { level: "error", message },
+    });
+  };
 
   const screen = blessed.screen({
     smartCSR: true,
@@ -239,8 +284,35 @@ async function main() {
       : state.lastError
         ? "{red-fg}FAILED{/}"
         : "{blue-fg}IDLE{/}";
+    // Elapsed and estimated times
+    let elapsedMs: number | null = null;
+    if (state.runStartedAt !== null) {
+      elapsedMs = Date.now() - state.runStartedAt;
+    } else if (state.lastRunDurationMs !== null) {
+      elapsedMs = state.lastRunDurationMs;
+    }
+    const elapsedSec = elapsedMs !== null ? Math.round(elapsedMs / 1000) : null;
+
+    const estSec =
+      state.lastRunDurationMs !== null
+        ? Math.round(state.lastRunDurationMs / 1000)
+        : null;
+
+    // Phase progress (extract → synthesize → render → check)
+    const pipeline = ["extract", "synthesize", "render", "check"];
+    const completed = pipeline.filter((s) =>
+      state.completedStages.has(s),
+    ).length;
+    const total = pipeline.length;
+    const progressPct = total > 0 ? Math.round((completed / total) * 100) : 0;
+
     topBar.setContent(
-      ` repo={bold}${repo}{/} profile=${cfg.profile} stage=${stage} mode=${mode} gates=${cfg.gates} flags=[${flags}] ${status}`,
+      ` repo={bold}${repo}{/} profile=${cfg.profile} stage=${stage} mode=${mode} gates=${cfg.gates} flags=[${flags}] ${status}` +
+        (elapsedSec !== null
+          ? ` time=${elapsedSec}s` +
+            (estSec !== null ? `~${estSec}s` : "") +
+            ` progress=${progressPct}%`
+          : ""),
     );
   }
 
@@ -249,7 +321,7 @@ async function main() {
     let content = "Keys:\n";
     content += "  F5/Enter: run\n";
     content += "  Tab: cycle view\n";
-    content += "  a/t/g/l/p/c/f: switch view\n";
+    content += "  a/t/g/l/p/c/f/i/e/o: switch view\n";
     content += "  [/]: toggle side panels\n";
     content += "\nConfig:\n";
     content += `  dir: ${cfg.dir}\n`;
@@ -286,7 +358,7 @@ async function main() {
     if (mainView === "actions") {
       const lines: string[] = [];
       lines.push("Actions (stages & gates):");
-      for (const ev of state.events.slice(-40)) {
+      for (const ev of state.events.slice(-80)) {
         if (ev.type === "stage-start" || ev.type === "stage-end") {
           lines.push(
             `${ev.timestamp} stage=${ev.stage} type=${ev.type} success=${"success" in ev ? ev.success : ""}`,
@@ -295,6 +367,10 @@ async function main() {
           lines.push(
             `${ev.timestamp} gate=${ev.gate} type=${ev.type} success=${"success" in ev ? ev.success : ""}`,
           );
+        } else if (ev.type === "log") {
+          const level = ev.data?.level ?? "info";
+          const msg = ev.data?.message ?? "";
+          lines.push(`${ev.timestamp} [${level}] ${msg}`);
         }
       }
       mainBox.setContent(lines.join("\n") || "No actions yet.");
@@ -333,6 +409,16 @@ async function main() {
         }
       }
       mainBox.setContent(lines.join("\n") || "No doc/artifact events yet.");
+    } else if (mainView === "logs") {
+      const lines: string[] = [];
+      lines.push("Logs (raw console):");
+      const logs = state.events.filter((ev) => ev.type === "log").slice(-80);
+      for (const ev of logs) {
+        const level = ev.data?.level ?? "info";
+        const msg = ev.data?.message ?? "";
+        lines.push(`${ev.timestamp} [${level}] ${msg}`);
+      }
+      mainBox.setContent(lines.join("\n") || "No logs yet.");
     } else if (mainView === "progress") {
       const lines: string[] = [];
       lines.push("Progress & artifacts:");
@@ -384,6 +470,35 @@ async function main() {
         "Note: gates string can be edited via config in a future iteration.",
       );
       mainBox.setContent(lines.join("\n"));
+    } else if (mainView === "ideas") {
+      const lines: string[] = [];
+      lines.push("Ideas (pushIdea tool calls):");
+      for (const ev of state.events.slice(-200)) {
+        if (ev.type !== "idea-pushed") continue;
+        const d = ev.data ?? {};
+        const tag = typeof d.tag === "string" && d.tag ? ` [${d.tag}]` : "";
+        lines.push(`${ev.timestamp} ${ev.agent ?? ""}${tag}: ${d.note ?? ""}`);
+      }
+      mainBox.setContent(lines.join("\n") || "No ideas yet.");
+    } else if (mainView === "evidence") {
+      const lines: string[] = [];
+      lines.push("Evidence (saveEvidence tool calls):");
+      for (const ev of state.events.slice(-200)) {
+        if (ev.type !== "evidence-saved") continue;
+        const d = ev.data ?? {};
+        const span =
+          typeof d.startLine === "number" && typeof d.endLine === "number"
+            ? `${d.startLine}-${d.endLine}`
+            : "";
+        const sha =
+          typeof d.sha256 === "string" && d.sha256
+            ? ` (${String(d.sha256).slice(0, 8)}…)`
+            : "";
+        lines.push(
+          `${ev.timestamp} ${d.path ?? ""}${span ? ":" + span : ""}${sha}`,
+        );
+      }
+      mainBox.setContent(lines.join("\n") || "No evidence yet.");
     }
   }
 
@@ -401,7 +516,11 @@ async function main() {
                 ? "progress"
                 : mainView === "config"
                   ? "config"
-                  : "flags";
+                  : mainView === "ideas"
+                    ? "ideas"
+                    : mainView === "evidence"
+                      ? "evidence"
+                      : "flags";
     const left = leftVisible ? "on" : "off";
     const right = rightVisible ? "on" : "off";
     const msg = state.lastError ? ` ERR: ${state.lastError}` : "";
@@ -431,12 +550,14 @@ async function main() {
     state.running = true;
     state.lastError = null;
     state.currentStage = null;
+    state.runStartedAt = Date.now();
     state.events = [];
     state.llmEvents = [];
     state.agentStats = {};
     state.docs.clear();
     state.artifacts.clear();
     state.gatesStatus = {};
+    state.completedStages.clear();
     redraw();
 
     try {
@@ -473,6 +594,10 @@ async function main() {
     } catch (err) {
       state.lastError = (err as Error).message ?? String(err);
     } finally {
+      if (state.runStartedAt !== null) {
+        state.lastRunDurationMs = Date.now() - state.runStartedAt;
+      }
+      state.runStartedAt = null;
       state.running = false;
       redraw();
     }
@@ -480,6 +605,8 @@ async function main() {
 
   screen.key(["C-c", "q"], () => {
     setEngineEventListener(null);
+    console.log = originalLog;
+    console.error = originalError;
     screen.destroy();
     process.exit(0);
   });
@@ -490,9 +617,12 @@ async function main() {
       "usage",
       "agentsTop",
       "agentsLog",
+      "logs",
       "progress",
       "config",
       "flags",
+      "ideas",
+      "evidence",
     ];
     const idx = order.indexOf(mainView);
     mainView = order[(idx + 1) % order.length];
@@ -505,9 +635,12 @@ async function main() {
       "usage",
       "agentsTop",
       "agentsLog",
+      "logs",
       "progress",
       "config",
       "flags",
+      "ideas",
+      "evidence",
     ];
     const idx = order.indexOf(mainView);
     mainView = order[(idx - 1 + order.length) % order.length];
@@ -530,6 +663,10 @@ async function main() {
     mainView = "agentsLog";
     redraw();
   });
+  screen.key(["o"], () => {
+    mainView = "logs";
+    redraw();
+  });
   screen.key(["p"], () => {
     mainView = "progress";
     redraw();
@@ -540,6 +677,14 @@ async function main() {
   });
   screen.key(["f"], () => {
     mainView = "flags";
+    redraw();
+  });
+  screen.key(["i"], () => {
+    mainView = "ideas";
+    redraw();
+  });
+  screen.key(["e"], () => {
+    mainView = "evidence";
     redraw();
   });
 

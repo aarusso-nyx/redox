@@ -18,54 +18,86 @@ type MaestroPlan = {
   nextActions: MaestroAction[];
 };
 
-function artifactExists(engine: EngineContext, rel: string) {
-  return fs.existsSync(path.join(engine.root, rel));
+async function artifactExists(engine: EngineContext, rel: string) {
+  return fs.pathExists(path.join(engine.root, rel));
 }
 
 async function gatherState(engine: EngineContext) {
   const docsDir = engine.docsDir;
   const evidenceDir = engine.evidenceDir;
+  const [
+    overview,
+    architecture,
+    db,
+    userGuide,
+    fpReport,
+    apiMap,
+    useCases,
+    coverageMatrix,
+    fpAppendix,
+    rbac,
+    lgpd,
+  ] = await Promise.all([
+    artifactExists(
+      engine,
+      path.relative(engine.root, path.join(docsDir, "Overview.md")),
+    ),
+    artifactExists(
+      engine,
+      path.relative(engine.root, path.join(docsDir, "Architecture Guide.md")),
+    ),
+    artifactExists(
+      engine,
+      path.relative(engine.root, path.join(docsDir, "Database Reference.md")),
+    ),
+    artifactExists(
+      engine,
+      path.relative(engine.root, path.join(docsDir, "User Guide.md")),
+    ),
+    artifactExists(
+      engine,
+      path.relative(
+        engine.root,
+        path.join(docsDir, "Function Point Report.md"),
+      ),
+    ),
+    fs.pathExists(path.join(evidenceDir, "api-map.json")),
+    fs.pathExists(path.join(evidenceDir, "use-cases.json")),
+    fs.pathExists(path.join(evidenceDir, "coverage-matrix.json")),
+    fs.pathExists(path.join(evidenceDir, "fp-appendix.json")),
+    fs.pathExists(path.join(evidenceDir, "rbac.json")),
+    fs.pathExists(path.join(evidenceDir, "lgpd-map.json")),
+  ]);
+
+  let routes = false;
+  try {
+    const entries = await fs.readdir(evidenceDir);
+    routes = entries.some(
+      (n: string) => n.startsWith("routes-") && n.endsWith(".json"),
+    );
+  } catch {
+    routes = false;
+  }
+
   return {
     root: engine.root,
     docsDir,
     evidenceDir,
     docs: {
-      overview: artifactExists(
-        engine,
-        path.relative(engine.root, path.join(docsDir, "Overview.md")),
-      ),
-      architecture: artifactExists(
-        engine,
-        path.relative(engine.root, path.join(docsDir, "Architecture Guide.md")),
-      ),
-      db: artifactExists(
-        engine,
-        path.relative(engine.root, path.join(docsDir, "Database Reference.md")),
-      ),
-      userGuide: artifactExists(
-        engine,
-        path.relative(engine.root, path.join(docsDir, "User Guide.md")),
-      ),
-      fpReport: artifactExists(
-        engine,
-        path.relative(
-          engine.root,
-          path.join(docsDir, "Function Point Report.md"),
-        ),
-      ),
+      overview,
+      architecture,
+      db,
+      userGuide,
+      fpReport,
     },
     artifacts: {
-      apiMap: fs.existsSync(path.join(evidenceDir, "api-map.json")),
-      routes: fs
-        .readdirSync(evidenceDir)
-        .some((n: string) => n.startsWith("routes-") && n.endsWith(".json")),
-      useCases: fs.existsSync(path.join(evidenceDir, "use-cases.json")),
-      coverageMatrix: fs.existsSync(
-        path.join(evidenceDir, "coverage-matrix.json"),
-      ),
-      fpAppendix: fs.existsSync(path.join(evidenceDir, "fp-appendix.json")),
-      rbac: fs.existsSync(path.join(evidenceDir, "rbac.json")),
-      lgpd: fs.existsSync(path.join(evidenceDir, "lgpd-map.json")),
+      apiMap,
+      routes,
+      useCases,
+      coverageMatrix,
+      fpAppendix,
+      rbac,
+      lgpd,
     },
   };
 }
@@ -93,7 +125,10 @@ ${JSON.stringify(state, null, 2)}
     model:
       process.env.REDOX_MODEL_MAESTRO ??
       process.env.REDOX_MODEL_WRITER ??
-      "chatgpt-5.1",
+      "gpt-5.1",
+    reasoningEffort: "high",
+    verbosity: "medium",
+    maxOutputTokens: 4000,
     agent: "maestro",
     stage: "orchestrate",
     meta: { root: engine.root, docsDir: engine.docsDir },

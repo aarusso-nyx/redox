@@ -28,7 +28,7 @@ function makeEngine(evidenceDir: string): EngineContext {
   };
 }
 
-describe.skip("buildCoverageMatrix", () => {
+describe("buildCoverageMatrix", () => {
   it("builds matrix from api-map, routes, and use-cases artifacts", async () => {
     // Ensure fs-extra has a pathExists helper in this test environment
     if (!(fsExtra as any).pathExists) {

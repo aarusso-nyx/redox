@@ -19,9 +19,15 @@ export async function buildDepGraph(
     "src/index.tsx",
   ];
 
-  const entry = candidates
-    .map((rel) => path.join(engine.root, rel))
-    .find((p) => (fs.pathExistsSync ? fs.pathExistsSync(p) : false));
+  let entry: string | undefined;
+  for (const rel of candidates) {
+    const candidate = path.join(engine.root, rel);
+    // fs-extra: pathExists is async and returns a boolean
+    if (await fs.pathExists(candidate)) {
+      entry = candidate;
+      break;
+    }
+  }
 
   if (!entry) return;
 
@@ -73,7 +79,10 @@ ${JSON.stringify(context, null, 2)}
   }
 
   const res = await askLLM(userPrompt, {
-    model: process.env.REDOX_MODEL_WRITER ?? "chatgpt-5.1",
+    model: process.env.REDOX_MODEL_WRITER ?? "gpt-5.1",
+    reasoningEffort: "high",
+    verbosity: "high",
+    maxOutputTokens: 6000,
     agent: "dep-grapher",
     stage: "extract",
     meta: { graphOut, mdOut, root: engine.root },

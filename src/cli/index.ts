@@ -47,6 +47,12 @@ const program = new Command()
   .option("--out <dir>", "output directory (default: <dir>/redox)")
   .option("--facts-only", "stop after extraction (no prose)")
   .option("--concurrency <n>", "parallel extractors", "4")
+  .option("--clean", "remove existing redox output (docsDir) before running")
+  .option("--clobber", "alias for --clean")
+  .option(
+    "--resume",
+    "resume from existing artifacts when possible (skip completed stages)",
+  )
   .option("--dry-run", "Plan actions without executing anything")
   .option("--debug", "Verbose logging of actions, prompts, and gates")
   .option("--verbose", "More verbose logging for stages and gates")
@@ -123,12 +129,12 @@ program
   .command("translate")
   .description("Translate Markdown docs into a target language")
   .argument("[dir]", "target project directory", ".")
-  .option("--lang <locale>", "target language (e.g., pt-BR, es-ES, fr-FR)")
   .option(
-    "--src <dir>",
-    "source docs directory (relative to project root)",
-    "docs",
+    "--lang <locale>",
+    "target language (e.g., pt-BR, es-ES, fr-FR)",
+    "pt-BR",
   )
+  .option("--src <dir>", "source docs directory (default: ./redox)")
   .option(
     "--out-dir <dir>",
     "output directory for translated docs (default: <src>/<lang>)",
@@ -141,7 +147,11 @@ program
   .option("--exclude <glob>", "glob of files to exclude (relative to src)")
   .action(async (dir, cmd) => {
     const baseOpts = { ...program.opts(), dir };
-    const tOpts = { ...cmd.opts() };
+    const raw =
+      cmd && typeof (cmd as any).opts === "function"
+        ? (cmd as any).opts()
+        : (cmd ?? {});
+    const tOpts = { ...raw };
     const outDir = resolveOutDir(tOpts as any);
     await runTranslate({
       ...baseOpts,
@@ -155,11 +165,7 @@ program
   .description("Render Markdown docs into PDF/HTML/DOCX formats (default: pdf)")
   .argument("[dir]", "target project directory", ".")
   .option("--formats <csv>", "comma-separated formats (pdf,html,docx)", "pdf")
-  .option(
-    "--src <dir>",
-    "source docs directory (relative to project root)",
-    "docs",
-  )
+  .option("--src <dir>", "source docs directory (default: ./redox)")
   .option(
     "--out-dir <dir>",
     "output directory for rendered docs (default: same as src)",
@@ -177,7 +183,11 @@ program
   )
   .action(async (dir, cmd) => {
     const baseOpts = { ...program.opts(), dir };
-    const eOpts = { ...cmd.opts() };
+    const raw =
+      cmd && typeof (cmd as any).opts === "function"
+        ? (cmd as any).opts()
+        : (cmd ?? {});
+    const eOpts = { ...raw };
     const outDir = resolveOutDir(eOpts as any);
     await runExport({
       ...baseOpts,

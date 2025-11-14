@@ -2,6 +2,8 @@ import OpenAI from "openai";
 import { config } from "dotenv";
 import { recordUsage } from "./usage.js";
 import { emitEngineEvent } from "./events.js";
+import { saveEvidence } from "./evidence.js";
+import { saveIdea } from "./ideas.js";
 
 config();
 
@@ -24,9 +26,14 @@ function getClient() {
 
 export type LLMOpts = {
   model: string;
-  temperature?: number;
   jsonSchema?: Record<string, unknown>;
   tools?: any[];
+  allowedTools?: { type: "function" | "custom" | "shell"; name: string }[];
+  toolMode?: "auto" | "required";
+  reasoningEffort?: "none" | "low" | "medium" | "high";
+  verbosity?: "low" | "medium" | "high";
+  maxOutputTokens?: number;
+  previousResponseId?: string;
   agent?: string;
   stage?: string;
   profile?: string;
@@ -34,13 +41,53 @@ export type LLMOpts = {
 };
 
 export async function askLLM(prompt: string, opts: LLMOpts) {
-  const { model, temperature = 0.1, jsonSchema, tools } = opts;
+  const {
+    model,
+    jsonSchema,
+    tools,
+    allowedTools,
+    toolMode,
+    reasoningEffort,
+    verbosity,
+    maxOutputTokens,
+    previousResponseId,
+  } = opts;
   const body: any = {
     model,
     input: [{ role: "user", content: prompt }],
-    temperature,
     tools,
   };
+
+  // GPT-5 family: prefer highest suggested reasoning and verbosity by default
+  if (model.startsWith("gpt-5")) {
+    body.reasoning = {
+      effort: reasoningEffort ?? "high",
+    };
+    body.text = {
+      verbosity: verbosity ?? "high",
+    };
+    if (typeof maxOutputTokens === "number") {
+      body.max_output_tokens = maxOutputTokens;
+    }
+  }
+
+  if (previousResponseId) {
+    body.previous_response_id = previousResponseId;
+  }
+
+  if (
+    model.startsWith("gpt-5") &&
+    Array.isArray(tools) &&
+    tools.length > 0 &&
+    Array.isArray(allowedTools) &&
+    allowedTools.length > 0
+  ) {
+    body.tool_choice = {
+      type: "allowed_tools",
+      mode: toolMode ?? "auto",
+      tools: allowedTools,
+    };
+  }
 
   if (jsonSchema) {
     body.response_format = {
@@ -89,6 +136,88 @@ export async function askLLM(prompt: string, opts: LLMOpts) {
       meta: opts.meta ?? {},
     },
   });
+
+  // Best-effort execution of recognized tool calls (saveEvidence, pushIdea)
+  try {
+    const toolCalls: { name: string; args: any }[] = [];
+    const out = (anyR.output ?? []) as any[];
+    for (const item of out) {
+      const contents = (item && item.content) || [];
+      for (const c of contents) {
+        const type = c?.type;
+        if (type !== "tool_call" && type !== "output_tool_call") continue;
+        const name = c.tool_name ?? c.name ?? c.tool?.name ?? c.function?.name;
+        if (!name || typeof name !== "string") continue;
+        let rawArgs =
+          c.arguments ?? c.args ?? c.tool?.arguments ?? c.function?.arguments;
+        let args: any = rawArgs;
+        if (typeof rawArgs === "string") {
+          try {
+            args = JSON.parse(rawArgs);
+          } catch {
+            // leave as string if parsing fails
+          }
+        }
+        toolCalls.push({ name, args });
+      }
+    }
+
+    for (const call of toolCalls) {
+      if (call.name === "saveEvidence" && call.args) {
+        const { path: evPath, startLine, endLine, sha256, note } = call.args;
+        if (
+          typeof evPath === "string" &&
+          typeof startLine === "number" &&
+          typeof endLine === "number"
+        ) {
+          await saveEvidence({
+            path: evPath,
+            startLine,
+            endLine,
+            sha256: typeof sha256 === "string" ? sha256 : "",
+            note: typeof note === "string" ? note : undefined,
+          });
+          emitEngineEvent({
+            type: "evidence-saved",
+            agent: opts.agent,
+            stage: opts.stage,
+            profile: opts.profile,
+            data: {
+              path: evPath,
+              startLine,
+              endLine,
+              sha256: typeof sha256 === "string" ? sha256 : "",
+              note: typeof note === "string" ? note : undefined,
+            },
+          });
+        }
+      } else if (call.name === "pushIdea" && call.args) {
+        const { note, tag } = call.args;
+        if (typeof note === "string" && note.trim()) {
+          await saveIdea({
+            note,
+            tag: typeof tag === "string" ? tag : undefined,
+            agent: opts.agent,
+            stage: opts.stage,
+            profile: opts.profile,
+            meta: opts.meta,
+          });
+          emitEngineEvent({
+            type: "idea-pushed",
+            agent: opts.agent,
+            stage: opts.stage,
+            profile: opts.profile,
+            data: {
+              note,
+              tag: typeof tag === "string" ? tag : undefined,
+            },
+          });
+        }
+      }
+    }
+  } catch {
+    // Tool execution is best-effort; ignore errors so they don't affect main flow.
+  }
 
   return res;
 }
