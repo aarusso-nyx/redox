@@ -2,6 +2,7 @@ import ora from "ora";
 import { detectAndLoadContext } from "../core/context.js";
 import { checkEnvironment } from "../core/env.js";
 import { orchestrate } from "../core/orchestrator.js";
+import { runMaestro } from "../core/maestro.js";
 
 type Opts = Record<string, any>;
 
@@ -82,6 +83,16 @@ export async function runCheck(opts: Opts) {
   return withEngine("redox check", opts, ({ engine, adapterId, seedsDir }) =>
     orchestrate("check", { ...opts, engine, adapterId, seedsDir }),
   );
+}
+
+export async function runReview(opts: Opts) {
+  return withEngine("redox review", opts, ({ engine, adapterId, seedsDir }) =>
+    orchestrate("review", { ...opts, engine, adapterId, seedsDir }),
+  );
+}
+
+export async function runMaestroCli(opts: Opts) {
+  return withEngine("redox maestro", opts, ({ engine }) => runMaestro(engine, opts));
 }
 
 export async function runDoctor(_opts: Opts) {

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://redox.nyxk.dev/schemas/DepGraph.schema.json",
+  "title": "Redox TypeScript Dependency Graph",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "graph": {
+      "description": "Adjacency list: file path → array of imported file paths.",
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": { "type": "string" },
+        "uniqueItems": true
+      }
+    }
+  },
+  "required": ["graph"]
+}
+

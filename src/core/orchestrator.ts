@@ -11,6 +11,8 @@ import { ensurePlaceholderArtifacts } from "./artifacts.js";
 import { buildCoverageMatrix } from "./coverageBuilder.js";
 import { buildRbacArtifact } from "./rbacBuilder.js";
 import { buildLgpdMap } from "./lgpdBuilder.js";
+import { buildStackProfile } from "./stackProfile.js";
+import { buildDepGraph } from "./depGraphBuilder.js";
 import type { EngineContext } from "./context.js";
 import { connectByEnv, introspect, buildDDLFromMigrations, type DbModel } from "../extractors/db.js";
 import { laravelRoutes, type LaravelRoute } from "../extractors/api-laravel.js";
@@ -268,6 +270,9 @@ async function runExtract(engine: EngineContext, dryRun: boolean, logEnabled: bo
   }
   dbModelCache = model;
 
+  // Stack profile (LLM-based repo scanner)
+  await buildStackProfile(engine, { dryRun, debug: logEnabled });
+
   // Laravel routes (if applicable)
   let routes: LaravelRoute[] = [];
   let nestRoutes: NestRoute[] = [];
@@ -393,6 +398,8 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
     const rbacPath = path.join(evidenceDir, "rbac.json");
     const lgpdPath = path.join(evidenceDir, "lgpd-map.json");
     const fpPath = path.join(evidenceDir, "fp-appendix.json");
+    const stackProfilePath = path.join(evidenceDir, "stack-profile.json");
+    const depGraphPath = path.join(evidenceDir, "dep-graph.json");
 
     let coverageData: any | null = null;
     if (fs.existsSync(coveragePath)) {
@@ -406,6 +413,8 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
       rbacPath: fs.existsSync(rbacPath) ? rbacPath : null,
       lgpdPath: fs.existsSync(lgpdPath) ? lgpdPath : null,
       fpPath: fs.existsSync(fpPath) ? fpPath : null,
+      stackProfilePath: fs.existsSync(stackProfilePath) ? stackProfilePath : null,
+      depGraphPath: fs.existsSync(depGraphPath) ? depGraphPath : null,
     });
 
     if (gates.includes("schema")) {
@@ -459,6 +468,24 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
           const fpSchema = await loadSchemaFile("Fp.schema.json");
           const fpData = await fs.readJson(fpPath);
           schemaGate(fpSchema, fpData);
+        }
+      }
+      if (fs.existsSync(stackProfilePath)) {
+        logDebug(logEnabled, "Gate=schema (stack-profile.json)");
+        if (!dryRun) {
+          const { loadSchemaFile } = await import("./schemaLoader.js");
+          const spSchema = await loadSchemaFile("StackProfile.schema.json");
+          const spData = await fs.readJson(stackProfilePath);
+          schemaGate(spSchema, spData);
+        }
+      }
+      if (fs.existsSync(depGraphPath)) {
+        logDebug(logEnabled, "Gate=schema (dep-graph.json)");
+        if (!dryRun) {
+          const { loadSchemaFile } = await import("./schemaLoader.js");
+          const dgSchema = await loadSchemaFile("DepGraph.schema.json");
+          const dgData = await fs.readJson(depGraphPath);
+          schemaGate(dgSchema, dgData);
         }
       }
     }
@@ -544,12 +571,34 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
   }
 
   if (stage === "synthesize") {
+    const evidenceDir = opts.engine.evidenceDir;
+    let stackProfile: any = null;
+    let depGraph: any = null;
+    try {
+      const spPath = path.join(evidenceDir, "stack-profile.json");
+      if (fs.existsSync(spPath)) {
+        stackProfile = await fs.readJson(spPath);
+      }
+    } catch {
+      stackProfile = null;
+    }
+    try {
+      const dgPath = path.join(evidenceDir, "dep-graph.json");
+      if (fs.existsSync(dgPath)) {
+        depGraph = await fs.readJson(dgPath);
+      }
+    } catch {
+      depGraph = null;
+    }
+
     const facts = {
       dbModel: dbModelCache ?? { tables: [], fks: [], indexes: [] },
       routes: routesCache ?? [],
       frontend: frontendCache ?? {},
       apiMap: apiMapCache ?? null,
       feRoutes: feRoutesCache ?? null,
+      stackProfile,
+      depGraph,
     };
     const profile = opts.profile ?? "dev";
     if (profile === "dev" || profile === "all") {

@@ -11,6 +11,8 @@ type Facts = {
   frontend: any;
   apiMap?: any;
   feRoutes?: any;
+  stackProfile?: any;
+  depGraph?: any;
 };
 
 async function runPhase(
@@ -31,6 +33,8 @@ async function runPhase(
       frontend: facts.frontend,
       apiMap: facts.apiMap ?? null,
       feRoutes: facts.feRoutes ?? null,
+      stackProfile: facts.stackProfile ?? null,
+      depGraph: facts.depGraph ?? null,
     },
     null,
     2,
@@ -101,6 +105,8 @@ ${JSON.stringify(
     frontend: facts.frontend,
     apiMap: facts.apiMap ?? null,
     feRoutes: facts.feRoutes ?? null,
+    stackProfile: facts.stackProfile ?? null,
+    depGraph: facts.depGraph ?? null,
   },
   null,
   2,
@@ -166,6 +172,16 @@ export async function writeDevDocsLLM(
   facts: Facts,
   opts: { dryRun: boolean; debug: boolean },
 ) {
+  // Repository guidelines / contributor guide
+  await runPhase(
+    ctx,
+    facts,
+    "agents-writer.md",
+    "You are a senior technical writer creating Repository Guidelines for contributors.",
+    path.join(ctx.docsDir, "Repository Guidelines.md"),
+    opts,
+  );
+
   await runPhase(
     ctx,
     facts,
@@ -204,6 +220,26 @@ export async function writeDevDocsLLM(
     "fe-mapper.md",
     "You are a frontend route mapper writing a Frontend Routes Map.",
     path.join(ctx.docsDir, "Frontend Routes Map.md"),
+    opts,
+  );
+
+  // Development styleguide
+  await runPhase(
+    ctx,
+    facts,
+    "dev-styleguide.md",
+    "You are a senior engineer writing a Development Styleguide for this repository.",
+    path.join(ctx.docsDir, "Development Styleguide.md"),
+    opts,
+  );
+
+  // Test strategy
+  await runPhase(
+    ctx,
+    facts,
+    "test-strategy.md",
+    "You are a QA lead writing a Test Strategy for this system.",
+    path.join(ctx.docsDir, "Test Strategy.md"),
     opts,
   );
 
@@ -266,6 +302,26 @@ export async function writeUserDocsLLM(
     path.join(ctx.evidenceDir, "use-cases.json"),
     opts,
   );
+
+  // Feature catalog
+  await runPhase(
+    ctx,
+    facts,
+    "feature-catalog.md",
+    "You are a product-minded writer cataloging features for end users.",
+    path.join(ctx.docsDir, "Feature Catalog.md"),
+    opts,
+  );
+
+  // Troubleshooting guide
+  await runPhase(
+    ctx,
+    facts,
+    "troubleshooting.md",
+    "You are a support engineer writing a Troubleshooting Guide for common issues.",
+    path.join(ctx.docsDir, "Troubleshooting Guide.md"),
+    opts,
+  );
 }
 
 export async function writeAuditDocsLLM(
@@ -289,6 +345,86 @@ export async function writeAuditDocsLLM(
     "fp-counter.md",
     "You are a function point analyst emitting a JSON FP appendix.",
     path.join(ctx.evidenceDir, "fp-appendix.json"),
+    opts,
+  );
+
+  // Security threat model
+  await runPhase(
+    ctx,
+    facts,
+    "threat-model.md",
+    "You are a security architect writing a Security Threat Model for this system.",
+    path.join(ctx.docsDir, "Security Threat Model.md"),
+    opts,
+  );
+
+  // Observability guide
+  await runPhase(
+    ctx,
+    facts,
+    "observability.md",
+    "You are an SRE writing an Observability Guide (logs, metrics, traces, alerts).",
+    path.join(ctx.docsDir, "Observability Guide.md"),
+    opts,
+  );
+
+  // Runbooks
+  await runPhase(
+    ctx,
+    facts,
+    "runbooks.md",
+    "You are an SRE writing operational Runbooks for this system.",
+    path.join(ctx.docsDir, "Runbooks.md"),
+    opts,
+  );
+
+  // Disaster recovery
+  await runPhase(
+    ctx,
+    facts,
+    "disaster-recovery.md",
+    "You are an SRE documenting Disaster Recovery for this system.",
+    path.join(ctx.docsDir, "Disaster Recovery.md"),
+    opts,
+  );
+
+  // Integration catalog
+  await runPhase(
+    ctx,
+    facts,
+    "integration-catalog.md",
+    "You are an integration architect writing an Integration Catalog for this system.",
+    path.join(ctx.docsDir, "Integration Catalog.md"),
+    opts,
+  );
+
+  // Performance benchmarks
+  await runPhase(
+    ctx,
+    facts,
+    "performance.md",
+    "You are a performance engineer writing Performance Benchmarks and considerations.",
+    path.join(ctx.docsDir, "Performance Benchmarks.md"),
+    opts,
+  );
+
+  // SBOM
+  await runPhase(
+    ctx,
+    facts,
+    "sbom.md",
+    "You are a tooling engineer writing a Software Bill of Materials (SBOM) overview based on detected dependencies.",
+    path.join(ctx.docsDir, "SBOM.md"),
+    opts,
+  );
+
+  // Configuration reference
+  await runPhase(
+    ctx,
+    facts,
+    "config-reference.md",
+    "You are a systems engineer writing a Configuration Reference for this system.",
+    path.join(ctx.docsDir, "Configuration Reference.md"),
     opts,
   );
 }

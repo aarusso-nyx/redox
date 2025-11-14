@@ -11,6 +11,8 @@ import {
   runRender,
   runCheck,
   runDoctor,
+  runReview,
+  runMaestroCli,
 } from "./runners.js";
 import { printUsageReport } from "./usage.js";
 
@@ -82,9 +84,14 @@ program
   .action(async (dir) => runCheck({ ...program.opts(), dir }));
 program
   .command("review")
-  .description("Run architecture review")
+  .description("Run architecture/QA/ops/security/docs reviews")
   .argument("[dir]", "target project directory", ".")
-  .action(async (dir) => orchestrate("review", { ...(program.opts() as any), dir }));
+  .action(async (dir) => runReview({ ...program.opts(), dir }));
+program
+  .command("maestro")
+  .description("Run the Maestro LLM orchestrator (experimental)")
+  .argument("[dir]", "target project directory", ".")
+  .action(async (dir) => runMaestroCli({ ...program.opts(), dir }));
 program
   .command("doctor")
   .description("Check environment and required tools")
