@@ -5,6 +5,5 @@ declare module "md-to-pdf";
 declare module "fs-extra";
 declare module "blessed";
 declare module "markdown-it";
-declare module "madge";
 declare module "@babel/traverse";
 declare module "pg";

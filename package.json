@@ -1,6 +1,6 @@
 {
   "name": "redox",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Reverse documentation engine (redox) - TS CLI with LLM-driven synthesis",
   "main": "index.js",
   "scripts": {
@@ -32,7 +32,6 @@
     "execa": "^9.6.0",
     "fast-glob": "^3.3.3",
     "fs-extra": "^11.3.2",
-    "madge": "^8.0.0",
     "markdown-it": "^14.1.0",
     "md-to-pdf": "^5.2.4",
     "openai": "^6.9.0",
@@ -45,14 +44,13 @@
   "devDependencies": {
     "@mermaid-js/mermaid-cli": "^11.4.0",
     "@types/blessed": "^0.1.25",
-    "@types/madge": "^5.0.3",
     "@types/node": "^24.10.1",
     "@typescript-eslint/eslint-plugin": "^8.46.4",
     "@typescript-eslint/parser": "^8.46.4",
     "@vitest/coverage-v8": "^4.0.8",
+    "dependency-cruiser": "^17.2.0",
     "eslint": "^9.39.1",
     "markdown-link-check": "^3.14.1",
-    "mermaid-cli": "^0.2.4",
     "prettier": "^3.6.2",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3",
