@@ -5,7 +5,7 @@ import { recordUsage, summarizeUsage } from "../src/core/usage.js";
 import { saveEvidence, sha256 } from "../src/core/evidence.js";
 import fsExtra from "fs-extra";
 
-describe.skip("usage tracking", () => {
+describe("usage tracking", () => {
   it("aggregates usage by model and agent", async () => {
     if (!(fsExtra as any).pathExists) {
       (fsExtra as any).pathExists = async (p: string) =>
@@ -42,7 +42,7 @@ describe.skip("usage tracking", () => {
   });
 });
 
-describe.skip("evidence ledger", () => {
+describe("evidence ledger", () => {
   it("writes evidence entries with sha256 hashes", async () => {
     const tmp = path.join(process.cwd(), ".tmp-evidence-test");
     const evDir = path.join(tmp, ".redox");
@@ -53,7 +53,7 @@ describe.skip("evidence ledger", () => {
     const hash = sha256(content);
     expect(hash).toHaveLength(64);
 
-    saveEvidence({
+    await saveEvidence({
       path: "src/example.ts",
       startLine: 1,
       endLine: 5,
