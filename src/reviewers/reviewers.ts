@@ -84,9 +84,10 @@ async function runReviewer(
 
 type ReviewerConfig = {
   name: string;
-  buildContext: (
-    engine: EngineContext,
-  ) => Promise<{ context: Record<string, unknown>; meta: Record<string, unknown> }>;
+  buildContext: (engine: EngineContext) => Promise<{
+    context: Record<string, unknown>;
+    meta: Record<string, unknown>;
+  }>;
   systemPrompt: string;
 };
 

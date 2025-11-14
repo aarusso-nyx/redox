@@ -107,7 +107,6 @@ export async function writeApiMapArtifact(
   await fs.ensureDir(engine.evidenceDir);
   await fs.writeJson(outPath, apiMap, { spaces: 2 });
   if (logEnabled) {
-    // eslint-disable-next-line no-console
     console.log("[redox][debug] ApiMap artifact written", {
       path: outPath,
       endpointCount: apiMap.endpoints.length,

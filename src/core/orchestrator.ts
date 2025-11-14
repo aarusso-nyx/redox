@@ -8,7 +8,7 @@ import { traceabilityGate } from "../gates/traceability.js";
 import { rbacGate } from "../gates/rbac.js";
 import { lgpdGate } from "../gates/compliance.js";
 import { runArtifactBuilders } from "./artifactBuilders.js";
-import type { ApiMap, RoutesDoc, CoverageMatrix } from "./types.js";
+import type { ApiMap, RoutesDoc } from "./types.js";
 import { emitEngineEvent, type EngineEvent } from "./events.js";
 import type { EngineContext } from "./context.js";
 import {
@@ -23,10 +23,7 @@ import { extractBlade } from "../extractors/blade.js";
 import { extractReactRoutes } from "../extractors/react-routes.js";
 import { angularRoutes } from "../extractors/fe-angular.js";
 import { nestControllers, type NestRoute } from "../extractors/api-nest.js";
-import {
-  buildApiMapFromRoutes,
-  writeApiMapArtifact,
-} from "./apiMapBuilder.js";
+import { buildApiMapFromRoutes, writeApiMapArtifact } from "./apiMapBuilder.js";
 import { writeRoutesArtifacts } from "./routesArtifacts.js";
 import { writeDbAndErdFromModel } from "../writers/dev-docs.js";
 import {

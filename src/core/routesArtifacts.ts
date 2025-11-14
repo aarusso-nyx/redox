@@ -45,12 +45,11 @@ export async function writeRoutesArtifacts(
       framework: "react",
       routes,
     };
-    const out = path.join(engine.evidenceDir, "routes-react.json");
-    await fs.writeJson(out, doc, { spaces: 2 });
-    if (logEnabled) {
-      // eslint-disable-next-line no-console
-      console.log("[redox][debug] Routes artifact written (react)", {
-        path: out,
+  const out = path.join(engine.evidenceDir, "routes-react.json");
+  await fs.writeJson(out, doc, { spaces: 2 });
+  if (logEnabled) {
+    console.log("[redox][debug] Routes artifact written (react)", {
+      path: out,
         routes: routes.length,
       });
     }
@@ -92,12 +91,11 @@ export async function writeRoutesArtifacts(
       framework: "angular",
       routes,
     };
-    const out = path.join(engine.evidenceDir, "routes-angular.json");
-    await fs.writeJson(out, doc, { spaces: 2 });
-    if (logEnabled) {
-      // eslint-disable-next-line no-console
-      console.log("[redox][debug] Routes artifact written (angular)", {
-        path: out,
+  const out = path.join(engine.evidenceDir, "routes-angular.json");
+  await fs.writeJson(out, doc, { spaces: 2 });
+  if (logEnabled) {
+    console.log("[redox][debug] Routes artifact written (angular)", {
+      path: out,
         routes: routes.length,
       });
     }

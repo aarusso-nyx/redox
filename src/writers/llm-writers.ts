@@ -45,20 +45,17 @@ const DEV_MD_PHASES: MdPhaseConfig[] = [
   },
   {
     promptFile: "db-synthesizer.md",
-    systemRole:
-      "You are a PostgreSQL DBA writing a Database Reference.",
+    systemRole: "You are a PostgreSQL DBA writing a Database Reference.",
     outFile: (ctx) => path.join(ctx.docsDir, "Database Reference.md"),
   },
   {
     promptFile: "architecture-writer.md",
-    systemRole:
-      "You are a software architect writing an Architecture Guide.",
+    systemRole: "You are a software architect writing an Architecture Guide.",
     outFile: (ctx) => path.join(ctx.docsDir, "Architecture Guide.md"),
   },
   {
     promptFile: "api-mapper.md",
-    systemRole:
-      "You are an API cartographer writing an API Map.",
+    systemRole: "You are an API cartographer writing an API Map.",
     outFile: (ctx) => path.join(ctx.docsDir, "API Map.md"),
   },
   {
@@ -75,44 +72,37 @@ const DEV_MD_PHASES: MdPhaseConfig[] = [
   },
   {
     promptFile: "test-strategy.md",
-    systemRole:
-      "You are a QA lead writing a Test Strategy for this system.",
+    systemRole: "You are a QA lead writing a Test Strategy for this system.",
     outFile: (ctx) => path.join(ctx.docsDir, "Test Strategy.md"),
   },
   {
     promptFile: "ci-deploy.md",
-    systemRole:
-      "You are a DevOps engineer documenting CI and deployment.",
-    outFile: (ctx) =>
-      path.join(ctx.docsDir, "Build, CI & Deploy Guide.md"),
+    systemRole: "You are a DevOps engineer documenting CI and deployment.",
+    outFile: (ctx) => path.join(ctx.docsDir, "Build, CI & Deploy Guide.md"),
   },
   {
     promptFile: "requirements.md",
     systemRole:
       "You are a requirements engineer producing functional requirements.",
-    outFile: (ctx) =>
-      path.join(ctx.docsDir, "Functional Requirements.md"),
+    outFile: (ctx) => path.join(ctx.docsDir, "Functional Requirements.md"),
   },
   {
     promptFile: "requirements.md",
     systemRole:
       "You are a requirements engineer producing non-functional requirements.",
-    outFile: (ctx) =>
-      path.join(ctx.docsDir, "Non-Functional Requirements.md"),
+    outFile: (ctx) => path.join(ctx.docsDir, "Non-Functional Requirements.md"),
   },
 ];
 
 const USER_MD_PHASES: MdPhaseConfig[] = [
   {
     promptFile: "user-manual.md",
-    systemRole:
-      "You are a product-minded writer creating a User Guide.",
+    systemRole: "You are a product-minded writer creating a User Guide.",
     outFile: (ctx) => path.join(ctx.docsDir, "User Guide.md"),
   },
   {
     promptFile: "use-cases.md",
-    systemRole:
-      "You are a product-minded analyst mapping use cases.",
+    systemRole: "You are a product-minded analyst mapping use cases.",
     outFile: (ctx) => path.join(ctx.docsDir, "Use Cases.md"),
   },
   {
@@ -125,8 +115,7 @@ const USER_MD_PHASES: MdPhaseConfig[] = [
     promptFile: "troubleshooting.md",
     systemRole:
       "You are a support engineer writing a Troubleshooting Guide for common issues.",
-    outFile: (ctx) =>
-      path.join(ctx.docsDir, "Troubleshooting Guide.md"),
+    outFile: (ctx) => path.join(ctx.docsDir, "Troubleshooting Guide.md"),
   },
 ];
 
@@ -142,51 +131,42 @@ const USER_JSON_PHASES: JsonPhaseConfig[] = [
 const AUDIT_MD_PHASES: MdPhaseConfig[] = [
   {
     promptFile: "fp-counter.md",
-    systemRole:
-      "You are a function point analyst producing an FP report.",
-    outFile: (ctx) =>
-      path.join(ctx.docsDir, "Function Point Report.md"),
+    systemRole: "You are a function point analyst producing an FP report.",
+    outFile: (ctx) => path.join(ctx.docsDir, "Function Point Report.md"),
   },
   {
     promptFile: "threat-model.md",
     systemRole:
       "You are a security architect writing a Security Threat Model for this system.",
-    outFile: (ctx) =>
-      path.join(ctx.docsDir, "Security Threat Model.md"),
+    outFile: (ctx) => path.join(ctx.docsDir, "Security Threat Model.md"),
   },
   {
     promptFile: "observability.md",
     systemRole:
       "You are an SRE writing an Observability Guide (logs, metrics, traces, alerts).",
-    outFile: (ctx) =>
-      path.join(ctx.docsDir, "Observability Guide.md"),
+    outFile: (ctx) => path.join(ctx.docsDir, "Observability Guide.md"),
   },
   {
     promptFile: "runbooks.md",
-    systemRole:
-      "You are an SRE writing operational Runbooks for this system.",
+    systemRole: "You are an SRE writing operational Runbooks for this system.",
     outFile: (ctx) => path.join(ctx.docsDir, "Runbooks.md"),
   },
   {
     promptFile: "disaster-recovery.md",
-    systemRole:
-      "You are an SRE documenting Disaster Recovery for this system.",
-    outFile: (ctx) =>
-      path.join(ctx.docsDir, "Disaster Recovery.md"),
+    systemRole: "You are an SRE documenting Disaster Recovery for this system.",
+    outFile: (ctx) => path.join(ctx.docsDir, "Disaster Recovery.md"),
   },
   {
     promptFile: "integration-catalog.md",
     systemRole:
       "You are an integration architect writing an Integration Catalog for this system.",
-    outFile: (ctx) =>
-      path.join(ctx.docsDir, "Integration Catalog.md"),
+    outFile: (ctx) => path.join(ctx.docsDir, "Integration Catalog.md"),
   },
   {
     promptFile: "performance.md",
     systemRole:
       "You are a performance engineer writing Performance Benchmarks and considerations.",
-    outFile: (ctx) =>
-      path.join(ctx.docsDir, "Performance Benchmarks.md"),
+    outFile: (ctx) => path.join(ctx.docsDir, "Performance Benchmarks.md"),
   },
   {
     promptFile: "sbom.md",
@@ -198,16 +178,14 @@ const AUDIT_MD_PHASES: MdPhaseConfig[] = [
     promptFile: "config-reference.md",
     systemRole:
       "You are a systems engineer writing a Configuration Reference for this system.",
-    outFile: (ctx) =>
-      path.join(ctx.docsDir, "Configuration Reference.md"),
+    outFile: (ctx) => path.join(ctx.docsDir, "Configuration Reference.md"),
   },
 ];
 
 const AUDIT_JSON_PHASES: JsonPhaseConfig[] = [
   {
     promptFile: "fp-counter.md",
-    systemRole:
-      "You are a function point analyst emitting a JSON FP appendix.",
+    systemRole: "You are a function point analyst emitting a JSON FP appendix.",
     outFile: (ctx) => path.join(ctx.evidenceDir, "fp-appendix.json"),
   },
 ];

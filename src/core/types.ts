@@ -147,4 +147,3 @@ export type UseCasesDoc = {
   roles: string[];
   cases: UseCase[];
 };
-
