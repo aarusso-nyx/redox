@@ -4,6 +4,7 @@ import { checkEnvironment } from "../core/env.js";
 import { orchestrate } from "../core/orchestrator.js";
 import { runMaestro } from "../core/maestro.js";
 import { translateDocs } from "../core/translation.js";
+import { exportDocs } from "../core/exportDocs.js";
 
 type Opts = Record<string, any>;
 
@@ -117,7 +118,9 @@ export async function runTranslate(opts: Opts) {
   return withEngine("redox translate", opts, async ({ engine }) => {
     const lang = opts.lang;
     if (!lang || typeof lang !== "string") {
-      throw new Error("Missing required option --lang <locale> (e.g., pt-BR, es-ES).");
+      throw new Error(
+        "Missing required option --lang <locale> (e.g., pt-BR, es-ES).",
+      );
     }
 
     await translateDocs({
@@ -127,6 +130,24 @@ export async function runTranslate(opts: Opts) {
       outDir: opts.outDir ?? undefined,
       include: opts.include ?? "*.md",
       exclude: opts.exclude,
+      dryRun: opts.dryRun ?? false,
+      debug: opts.debug ?? false,
+    });
+  });
+}
+
+export async function runExport(opts: Opts) {
+  return withEngine("redox export", opts, async ({ engine }) => {
+    await exportDocs({
+      engine,
+      formats: opts.formats,
+      srcDir: opts.src ?? "docs",
+      outDir: opts.outDir ?? undefined,
+      include: opts.include ?? "*.md",
+      exclude: opts.exclude,
+      css: opts.css,
+      referenceDoc:
+        opts.referenceDoc ?? opts.referenceDocx ?? opts.referenceDocDotx,
       dryRun: opts.dryRun ?? false,
       debug: opts.debug ?? false,
     });

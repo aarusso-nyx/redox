@@ -14,6 +14,7 @@ import {
   runReview,
   runMaestroCli,
   runTranslate,
+  runExport,
 } from "./runners.js";
 import { printUsageReport } from "./usage.js";
 
@@ -122,9 +123,20 @@ program
   .description("Translate Markdown docs into a target language")
   .argument("[dir]", "target project directory", ".")
   .option("--lang <locale>", "target language (e.g., pt-BR, es-ES, fr-FR)")
-  .option("--src <dir>", "source docs directory (relative to project root)", "docs")
-  .option("--out-dir <dir>", "output directory for translated docs (default: <src>/<lang>)")
-  .option("--include <glob>", "glob of files to include (relative to src)", "*.md")
+  .option(
+    "--src <dir>",
+    "source docs directory (relative to project root)",
+    "docs",
+  )
+  .option(
+    "--out-dir <dir>",
+    "output directory for translated docs (default: <src>/<lang>)",
+  )
+  .option(
+    "--include <glob>",
+    "glob of files to include (relative to src)",
+    "*.md",
+  )
   .option("--exclude <glob>", "glob of files to exclude (relative to src)")
   .action(async (dir, cmd) => {
     const baseOpts = { ...program.opts(), dir };
@@ -134,6 +146,42 @@ program
     await runTranslate({
       ...baseOpts,
       ...tOpts,
+      outDir,
+    });
+  });
+
+program
+  .command("export")
+  .description("Render Markdown docs into PDF/HTML/DOCX formats (default: pdf)")
+  .argument("[dir]", "target project directory", ".")
+  .option("--formats <csv>", "comma-separated formats (pdf,html,docx)", "pdf")
+  .option(
+    "--src <dir>",
+    "source docs directory (relative to project root)",
+    "docs",
+  )
+  .option(
+    "--out-dir <dir>",
+    "output directory for rendered docs (default: same as src)",
+  )
+  .option(
+    "--include <glob>",
+    "glob of files to include (relative to src)",
+    "*.md",
+  )
+  .option("--exclude <glob>", "glob of files to exclude (relative to src)")
+  .option("--css <path>", "CSS file to reference for HTML/PDF output")
+  .option(
+    "--reference-doc <path>",
+    "Word reference document/template (.docx/.dotx) for DOCX output (pandoc only)",
+  )
+  .action(async (dir, cmd) => {
+    const baseOpts = { ...program.opts(), dir };
+    const eOpts = { ...cmd.opts() };
+    const outDir = (eOpts as any).outDir ?? (eOpts as any)["out-dir"];
+    await runExport({
+      ...baseOpts,
+      ...eOpts,
       outDir,
     });
   });

@@ -43,8 +43,11 @@ export async function translateDocs(opts: TranslateOptions) {
 
   if (!files.length) {
     if (debug) {
-      // eslint-disable-next-line no-console
-      console.log("[redox][translate] no files matched", { srcDir: absSrc, include, exclude });
+      console.log("[redox][translate] no files matched", {
+        srcDir: absSrc,
+        include,
+        exclude,
+      });
     }
     return;
   }
@@ -58,8 +61,11 @@ export async function translateDocs(opts: TranslateOptions) {
     const src = await fs.readFile(inPath, "utf8");
 
     if (dryRun) {
-      // eslint-disable-next-line no-console
-      console.log("[redox][translate][dry-run]", { in: inPath, out: outPath, lang });
+      console.log("[redox][translate][dry-run]", {
+        in: inPath,
+        out: outPath,
+        lang,
+      });
       continue;
     }
 
@@ -72,12 +78,18 @@ ${src}
 </FILE>`;
 
     if (debug) {
-      // eslint-disable-next-line no-console
-      console.log("[redox][debug] translate file", { in: inPath, out: outPath, lang });
+      console.log("[redox][debug] translate file", {
+        in: inPath,
+        out: outPath,
+        lang,
+      });
     }
 
     const res = await askLLM(userPrompt, {
-      model: process.env.REDOX_MODEL_TRANSLATOR ?? process.env.REDOX_MODEL_WRITER ?? "gpt-4.1-mini",
+      model:
+        process.env.REDOX_MODEL_TRANSLATOR ??
+        process.env.REDOX_MODEL_WRITER ??
+        "gpt-4.1-mini",
       temperature: 0.1,
       agent: `translator/${lang}`,
       stage: "translate",
@@ -90,13 +102,14 @@ ${src}
 
     const anyR: any = res as any;
     const text =
-      anyR.output_text ?? anyR.output?.[0]?.content?.[0]?.text ?? JSON.stringify(anyR, null, 2);
+      anyR.output_text ??
+      anyR.output?.[0]?.content?.[0]?.text ??
+      JSON.stringify(anyR, null, 2);
 
     await fs.ensureDir(path.dirname(outPath));
     await fs.writeFile(outPath, text, "utf8");
 
     if (debug) {
-      // eslint-disable-next-line no-console
       console.log("[redox][translate] wrote file", {
         in: inPath,
         out: outPath,
@@ -105,4 +118,3 @@ ${src}
     }
   }
 }
-

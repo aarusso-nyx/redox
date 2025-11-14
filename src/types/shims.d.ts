@@ -1,5 +1,3 @@
-declare module "fs-extra";
-declare module "madge";
-declare module "@babel/traverse";
-declare module "blessed";
-declare module "pg";
+// Temporary shim for modules without published TypeScript types.
+// Prefer installing proper @types packages or using libraries that bundle their own .d.ts.
+declare module "md-to-pdf";
