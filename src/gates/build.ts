@@ -1,4 +1,4 @@
-import fs from "fs";
+import fs from "node:fs";
 import path from "node:path";
 import { execa } from "execa";
 
@@ -6,7 +6,7 @@ export async function buildGate(root: string, docsDir: string) {
   const errors: string[] = [];
 
   const ddlPath = path.join(root, "database.sql");
-  if (fs.existsSync(ddlPath)) {
+  if (await fileExists(ddlPath)) {
     try {
       await execa("psql", ["-q", "-f", ddlPath], { cwd: root });
     } catch (err: any) {
@@ -17,7 +17,7 @@ export async function buildGate(root: string, docsDir: string) {
   }
 
   const erdPath = path.join(docsDir, "diagrams", "erd.mmd");
-  if (fs.existsSync(erdPath)) {
+  if (await fileExists(erdPath)) {
     const tmpOut = path.join(docsDir, "diagrams", ".erd-build.png");
     try {
       await execa("mmdc", ["-i", erdPath, "-o", tmpOut], { cwd: root });
@@ -27,7 +27,9 @@ export async function buildGate(root: string, docsDir: string) {
       );
     } finally {
       try {
-        if (fs.existsSync(tmpOut)) fs.unlinkSync(tmpOut);
+        if (await fileExists(tmpOut)) {
+          await fs.promises.unlink(tmpOut);
+        }
       } catch {
         // ignore cleanup errors
       }
@@ -36,5 +38,14 @@ export async function buildGate(root: string, docsDir: string) {
 
   if (errors.length) {
     throw new Error(`BuildGate failed:\n${errors.join("\n")}`);
+  }
+}
+
+async function fileExists(targetPath: string): Promise<boolean> {
+  try {
+    await fs.promises.access(targetPath);
+    return true;
+  } catch {
+    return false;
   }
 }

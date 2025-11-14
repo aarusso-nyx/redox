@@ -19,9 +19,15 @@ export async function buildDepGraph(
     "src/index.tsx",
   ];
 
-  const entry = candidates
-    .map((rel) => path.join(engine.root, rel))
-    .find((p) => (fs.pathExistsSync ? fs.pathExistsSync(p) : false));
+  let entry: string | undefined;
+  for (const rel of candidates) {
+    const candidate = path.join(engine.root, rel);
+    // fs-extra: pathExists is async and returns a boolean
+    if (await fs.pathExists(candidate)) {
+      entry = candidate;
+      break;
+    }
+  }
 
   if (!entry) return;
 

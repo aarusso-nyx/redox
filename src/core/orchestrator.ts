@@ -268,27 +268,43 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
     const stackProfilePath = path.join(evidenceDir, "stack-profile.json");
     const depGraphPath = path.join(evidenceDir, "dep-graph.json");
 
+    const [
+      coverageExists,
+      apiMapExists,
+      rbacExists,
+      lgpdExists,
+      fpExists,
+      stackProfileExists,
+      depGraphExists,
+    ] = await Promise.all([
+      fs.pathExists(coveragePath),
+      fs.pathExists(apiMapPath),
+      fs.pathExists(rbacPath),
+      fs.pathExists(lgpdPath),
+      fs.pathExists(fpPath),
+      fs.pathExists(stackProfilePath),
+      fs.pathExists(depGraphPath),
+    ]);
+
     let coverageData: any | null = null;
-    if (fs.existsSync(coveragePath)) {
+    if (coverageExists) {
       coverageData = await fs.readJson(coveragePath);
     }
 
     logDebug(logEnabled, "Stage=check", {
       gates,
-      coveragePath: fs.existsSync(coveragePath) ? coveragePath : null,
-      apiMapPath: fs.existsSync(apiMapPath) ? apiMapPath : null,
-      rbacPath: fs.existsSync(rbacPath) ? rbacPath : null,
-      lgpdPath: fs.existsSync(lgpdPath) ? lgpdPath : null,
-      fpPath: fs.existsSync(fpPath) ? fpPath : null,
-      stackProfilePath: fs.existsSync(stackProfilePath)
-        ? stackProfilePath
-        : null,
-      depGraphPath: fs.existsSync(depGraphPath) ? depGraphPath : null,
+      coveragePath: coverageExists ? coveragePath : null,
+      apiMapPath: apiMapExists ? apiMapPath : null,
+      rbacPath: rbacExists ? rbacPath : null,
+      lgpdPath: lgpdExists ? lgpdPath : null,
+      fpPath: fpExists ? fpPath : null,
+      stackProfilePath: stackProfileExists ? stackProfilePath : null,
+      depGraphPath: depGraphExists ? depGraphPath : null,
     });
 
     if (gates.includes("schema")) {
       emit({ type: "gate-start", gate: "schema" });
-      if (fs.existsSync(apiMapPath)) {
+      if (apiMapExists) {
         logDebug(logEnabled, "Gate=schema (api-map.json)");
         if (!dryRun) {
           const { loadSchemaFile } = await import("./schemaLoader.js");
@@ -324,7 +340,7 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
           schemaGate(coverageSchema, coverageData);
         }
       }
-      if (fs.existsSync(rbacPath)) {
+      if (rbacExists) {
         logDebug(logEnabled, "Gate=schema (rbac.json)");
         if (!dryRun) {
           const { loadSchemaFile } = await import("./schemaLoader.js");
@@ -333,7 +349,7 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
           schemaGate(rbacSchema, rbacData);
         }
       }
-      if (fs.existsSync(fpPath)) {
+      if (fpExists) {
         logDebug(logEnabled, "Gate=schema (fp-appendix.json)");
         if (!dryRun) {
           const { loadSchemaFile } = await import("./schemaLoader.js");
@@ -342,7 +358,7 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
           schemaGate(fpSchema, fpData);
         }
       }
-      if (fs.existsSync(stackProfilePath)) {
+      if (stackProfileExists) {
         logDebug(logEnabled, "Gate=schema (stack-profile.json)");
         if (!dryRun) {
           const { loadSchemaFile } = await import("./schemaLoader.js");
@@ -351,7 +367,7 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
           schemaGate(spSchema, spData);
         }
       }
-      if (fs.existsSync(depGraphPath)) {
+      if (depGraphExists) {
         logDebug(logEnabled, "Gate=schema (dep-graph.json)");
         if (!dryRun) {
           const { loadSchemaFile } = await import("./schemaLoader.js");
@@ -415,7 +431,7 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
       emit({ type: "gate-end", gate: "build", success: true });
     }
 
-    if (fs.existsSync(rbacPath)) {
+    if (rbacExists) {
       emit({ type: "gate-start", gate: "rbac" });
       const rbacData = await fs.readJson(rbacPath);
       const matrixRows =
@@ -433,7 +449,7 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
       emit({ type: "gate-end", gate: "rbac", success: true });
     }
 
-    if (fs.existsSync(lgpdPath)) {
+    if (lgpdExists) {
       emit({ type: "gate-start", gate: "lgpd" });
       const lgpdData = await fs.readJson(lgpdPath);
       if (Array.isArray(lgpdData)) {
@@ -474,17 +490,13 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
     let depGraph: any = null;
     try {
       const spPath = path.join(evidenceDir, "stack-profile.json");
-      if (fs.existsSync(spPath)) {
-        stackProfile = await fs.readJson(spPath);
-      }
+      stackProfile = await fs.readJson(spPath);
     } catch {
       stackProfile = null;
     }
     try {
       const dgPath = path.join(evidenceDir, "dep-graph.json");
-      if (fs.existsSync(dgPath)) {
-        depGraph = await fs.readJson(dgPath);
-      }
+      depGraph = await fs.readJson(dgPath);
     } catch {
       depGraph = null;
     }
