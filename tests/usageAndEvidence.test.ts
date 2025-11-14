@@ -17,13 +17,13 @@ describe("usage tracking", () => {
     await fs.remove(tmp);
 
     await recordUsage({
-      model: "chatgpt-5.1",
+      model: "gpt-5.1",
       agent: "test-agent",
       inputTokens: 10,
       outputTokens: 5,
     });
     await recordUsage({
-      model: "chatgpt-5.1",
+      model: "gpt-5.1",
       agent: "test-agent",
       inputTokens: 20,
       outputTokens: 10,
@@ -34,7 +34,7 @@ describe("usage tracking", () => {
     expect(summary.totalInput).toBe(30);
     expect(summary.totalOutput).toBe(15);
     expect(summary.totalTokens).toBe(45);
-    expect(summary.byModel["chatgpt-5.1"].calls).toBe(2);
+    expect(summary.byModel["gpt-5.1"].calls).toBe(2);
     expect(summary.byAgent["test-agent"].total).toBe(45);
 
     await fs.remove(tmp);

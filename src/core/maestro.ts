@@ -125,7 +125,10 @@ ${JSON.stringify(state, null, 2)}
     model:
       process.env.REDOX_MODEL_MAESTRO ??
       process.env.REDOX_MODEL_WRITER ??
-      "chatgpt-5.1",
+      "gpt-5.1",
+    reasoningEffort: "high",
+    verbosity: "medium",
+    maxOutputTokens: 4000,
     agent: "maestro",
     stage: "orchestrate",
     meta: { root: engine.root, docsDir: engine.docsDir },

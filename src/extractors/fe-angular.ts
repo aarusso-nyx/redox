@@ -59,10 +59,16 @@ function extractRoutesFromArrayLiteral(
 }
 
 export function angularRoutes(root = "."): AngularRoute[] {
-  const project = new Project({
-    tsConfigFilePath: `${root}/tsconfig.json`,
-    skipFileDependencyResolution: true,
-  });
+  let project: Project;
+  try {
+    project = new Project({
+      tsConfigFilePath: `${root}/tsconfig.json`,
+      skipFileDependencyResolution: true,
+    });
+  } catch {
+    // If there's no tsconfig or ts-morph can't initialize, assume no Angular routes.
+    return [];
+  }
 
   const routes: AngularRoute[] = [];
 

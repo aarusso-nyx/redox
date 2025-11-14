@@ -2,6 +2,7 @@ import fs from "fs-extra";
 import path from "node:path";
 import type { EngineContext } from "../core/context.js";
 import { askLLM } from "../core/llm.js";
+import { RevdocTools } from "../core/tools.js";
 import { loadPrompt } from "../core/promptLoader.js";
 import type { DbModel } from "../extractors/db.js";
 import { emitEngineEvent } from "../core/events.js";
@@ -28,6 +29,10 @@ type JsonPhaseConfig = {
   promptFile: string;
   systemRole: string;
   outFile: (ctx: EngineContext) => string;
+};
+
+type LlmSession = {
+  previousResponseId?: string;
 };
 
 const DEV_MD_PHASES: MdPhaseConfig[] = [
@@ -196,6 +201,7 @@ async function runPhase(
   promptFile: string,
   systemRole: string,
   outFile: string,
+  session: LlmSession,
   opts: { dryRun: boolean; debug: boolean },
 ) {
   const promptText = await loadPrompt(promptFile);
@@ -231,7 +237,16 @@ async function runPhase(
   }
 
   const res = await askLLM(user, {
-    model: process.env.REDOX_MODEL_WRITER ?? "chatgpt-5.1",
+    model: process.env.REDOX_MODEL_WRITER ?? "gpt-5.1",
+    tools: RevdocTools,
+    allowedTools: [
+      { type: "function", name: "saveEvidence" },
+      { type: "function", name: "pushIdea" },
+    ],
+    toolMode: "auto",
+    reasoningEffort: "high",
+    verbosity: "high",
+    previousResponseId: session.previousResponseId,
     agent: promptFile,
     stage: "synthesize",
     profile: undefined,
@@ -241,6 +256,10 @@ async function runPhase(
     },
   });
   const anyR: any = res as any;
+  const responseId: string | undefined = anyR.id ?? anyR.response_id;
+  if (responseId) {
+    session.previousResponseId = responseId;
+  }
   const text =
     anyR.output_text ??
     anyR.output?.[0]?.content?.[0]?.text ??
@@ -268,6 +287,7 @@ async function runJsonPhase(
   promptFile: string,
   systemRole: string,
   outFile: string,
+  session: LlmSession,
   opts: { dryRun: boolean; debug: boolean },
 ) {
   const promptText = await loadPrompt(promptFile);
@@ -310,7 +330,17 @@ ${JSON.stringify(
   }
 
   const res = await askLLM(user, {
-    model: process.env.REDOX_MODEL_WRITER ?? "chatgpt-5.1",
+    model: process.env.REDOX_MODEL_WRITER ?? "gpt-5.1",
+    tools: RevdocTools,
+    allowedTools: [
+      { type: "function", name: "saveEvidence" },
+      { type: "function", name: "pushIdea" },
+    ],
+    toolMode: "auto",
+    reasoningEffort: "high",
+    verbosity: "medium",
+    maxOutputTokens: 6000,
+    previousResponseId: session.previousResponseId,
     agent: `${promptFile}:json`,
     stage: "synthesize",
     profile: undefined,
@@ -320,6 +350,10 @@ ${JSON.stringify(
     },
   });
   const anyR: any = res as any;
+  const responseId: string | undefined = anyR.id ?? anyR.response_id;
+  if (responseId) {
+    session.previousResponseId = responseId;
+  }
   let text =
     anyR.output_text ??
     anyR.output?.[0]?.content?.[0]?.text ??
@@ -360,6 +394,7 @@ export async function writeDevDocsLLM(
   facts: Facts,
   opts: { dryRun: boolean; debug: boolean },
 ) {
+  const session: LlmSession = {};
   for (const phase of DEV_MD_PHASES) {
     await runPhase(
       ctx,
@@ -367,6 +402,7 @@ export async function writeDevDocsLLM(
       phase.promptFile,
       phase.systemRole,
       phase.outFile(ctx),
+      session,
       opts,
     );
   }
@@ -377,6 +413,7 @@ export async function writeUserDocsLLM(
   facts: Facts,
   opts: { dryRun: boolean; debug: boolean },
 ) {
+  const session: LlmSession = {};
   for (const phase of USER_MD_PHASES) {
     await runPhase(
       ctx,
@@ -384,6 +421,7 @@ export async function writeUserDocsLLM(
       phase.promptFile,
       phase.systemRole,
       phase.outFile(ctx),
+      session,
       opts,
     );
   }
@@ -395,6 +433,7 @@ export async function writeUserDocsLLM(
       phase.promptFile,
       phase.systemRole,
       phase.outFile(ctx),
+      session,
       opts,
     );
   }
@@ -405,6 +444,7 @@ export async function writeAuditDocsLLM(
   facts: Facts,
   opts: { dryRun: boolean; debug: boolean },
 ) {
+  const session: LlmSession = {};
   for (const phase of AUDIT_MD_PHASES) {
     await runPhase(
       ctx,
@@ -412,6 +452,7 @@ export async function writeAuditDocsLLM(
       phase.promptFile,
       phase.systemRole,
       phase.outFile(ctx),
+      session,
       opts,
     );
   }
@@ -423,6 +464,7 @@ export async function writeAuditDocsLLM(
       phase.promptFile,
       phase.systemRole,
       phase.outFile(ctx),
+      session,
       opts,
     );
   }

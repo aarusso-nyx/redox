@@ -2,6 +2,7 @@ import fs from "fs-extra";
 import path from "node:path";
 import type { EngineContext } from "../core/context.js";
 import { askLLM } from "../core/llm.js";
+import { RevdocTools } from "../core/tools.js";
 
 export type ReviewResult = {
   summary: string;
@@ -61,7 +62,16 @@ async function runReviewer(
     model:
       process.env.REDOX_MODEL_REVIEW ??
       process.env.REDOX_MODEL_WRITER ??
-      "chatgpt-5.1",
+      "gpt-5.1",
+    tools: RevdocTools,
+    allowedTools: [
+      { type: "function", name: "saveEvidence" },
+      { type: "function", name: "pushIdea" },
+    ],
+    toolMode: "auto",
+    reasoningEffort: "high",
+    verbosity: "high",
+    maxOutputTokens: 6000,
     agent: `${config.name}-review`,
     stage: "review",
     meta: { root: engine.root, ...config.meta },

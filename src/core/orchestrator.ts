@@ -61,6 +61,7 @@ type OrchestratorOpts = {
   debug?: boolean;
   verbose?: boolean;
   quiet?: boolean;
+  resume?: boolean;
   onEvent?: (event: EngineEvent) => void;
 };
 
@@ -302,81 +303,95 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
       depGraphPath: depGraphExists ? depGraphPath : null,
     });
 
+    const failedGates: { gate: string; error: Error }[] = [];
+
     if (gates.includes("schema")) {
       emit({ type: "gate-start", gate: "schema" });
-      if (apiMapExists) {
-        logDebug(logEnabled, "Gate=schema (api-map.json)");
-        if (!dryRun) {
-          const { loadSchemaFile } = await import("./schemaLoader.js");
-          const apiSchema = await loadSchemaFile("ApiMap.schema.json");
-          const apiData = await fs.readJson(apiMapPath);
-          schemaGate(apiSchema, apiData);
-        }
-      }
-      // Validate any routes-* JSON artifacts against Routes.schema.json
       try {
-        const entries = await fs.readdir(evidenceDir);
-        for (const name of entries) {
-          if (!name.startsWith("routes-") || !name.endsWith(".json")) continue;
-          const routesPath = path.join(evidenceDir, name);
-          logDebug(logEnabled, "Gate=schema (routes JSON)", { routesPath });
+        if (apiMapExists) {
+          logDebug(logEnabled, "Gate=schema (api-map.json)");
           if (!dryRun) {
             const { loadSchemaFile } = await import("./schemaLoader.js");
-            const routesSchema = await loadSchemaFile("Routes.schema.json");
-            const routesData = await fs.readJson(routesPath);
-            schemaGate(routesSchema, routesData);
+            const apiSchema = await loadSchemaFile("ApiMap.schema.json");
+            const apiData = await fs.readJson(apiMapPath);
+            schemaGate(apiSchema, apiData);
           }
         }
-      } catch {
-        // ignore directory read errors; other gates will surface issues if needed
-      }
-      if (coverageData) {
-        logDebug(logEnabled, "Gate=schema (coverage-matrix.json)");
-        if (!dryRun) {
-          const { loadSchemaFile } = await import("./schemaLoader.js");
-          const coverageSchema = await loadSchemaFile(
-            "CoverageMatrix.schema.json",
-          );
-          schemaGate(coverageSchema, coverageData);
+        // Validate any routes-* JSON artifacts against Routes.schema.json
+        try {
+          const entries = await fs.readdir(evidenceDir);
+          for (const name of entries) {
+            if (!name.startsWith("routes-") || !name.endsWith(".json"))
+              continue;
+            const routesPath = path.join(evidenceDir, name);
+            logDebug(logEnabled, "Gate=schema (routes JSON)", { routesPath });
+            if (!dryRun) {
+              const { loadSchemaFile } = await import("./schemaLoader.js");
+              const routesSchema = await loadSchemaFile("Routes.schema.json");
+              const routesData = await fs.readJson(routesPath);
+              schemaGate(routesSchema, routesData);
+            }
+          }
+        } catch {
+          // ignore directory read errors; other gates will surface issues if needed
         }
-      }
-      if (rbacExists) {
-        logDebug(logEnabled, "Gate=schema (rbac.json)");
-        if (!dryRun) {
-          const { loadSchemaFile } = await import("./schemaLoader.js");
-          const rbacSchema = await loadSchemaFile("Rbac.schema.json");
-          const rbacData = await fs.readJson(rbacPath);
-          schemaGate(rbacSchema, rbacData);
+        if (coverageData) {
+          logDebug(logEnabled, "Gate=schema (coverage-matrix.json)");
+          if (!dryRun) {
+            const { loadSchemaFile } = await import("./schemaLoader.js");
+            const coverageSchema = await loadSchemaFile(
+              "CoverageMatrix.schema.json",
+            );
+            schemaGate(coverageSchema, coverageData);
+          }
         }
-      }
-      if (fpExists) {
-        logDebug(logEnabled, "Gate=schema (fp-appendix.json)");
-        if (!dryRun) {
-          const { loadSchemaFile } = await import("./schemaLoader.js");
-          const fpSchema = await loadSchemaFile("Fp.schema.json");
-          const fpData = await fs.readJson(fpPath);
-          schemaGate(fpSchema, fpData);
+        if (rbacExists) {
+          logDebug(logEnabled, "Gate=schema (rbac.json)");
+          if (!dryRun) {
+            const { loadSchemaFile } = await import("./schemaLoader.js");
+            const rbacSchema = await loadSchemaFile("Rbac.schema.json");
+            const rbacData = await fs.readJson(rbacPath);
+            schemaGate(rbacSchema, rbacData);
+          }
         }
-      }
-      if (stackProfileExists) {
-        logDebug(logEnabled, "Gate=schema (stack-profile.json)");
-        if (!dryRun) {
-          const { loadSchemaFile } = await import("./schemaLoader.js");
-          const spSchema = await loadSchemaFile("StackProfile.schema.json");
-          const spData = await fs.readJson(stackProfilePath);
-          schemaGate(spSchema, spData);
+        if (fpExists) {
+          logDebug(logEnabled, "Gate=schema (fp-appendix.json)");
+          if (!dryRun) {
+            const { loadSchemaFile } = await import("./schemaLoader.js");
+            const fpSchema = await loadSchemaFile("Fp.schema.json");
+            const fpData = await fs.readJson(fpPath);
+            schemaGate(fpSchema, fpData);
+          }
         }
-      }
-      if (depGraphExists) {
-        logDebug(logEnabled, "Gate=schema (dep-graph.json)");
-        if (!dryRun) {
-          const { loadSchemaFile } = await import("./schemaLoader.js");
-          const dgSchema = await loadSchemaFile("DepGraph.schema.json");
-          const dgData = await fs.readJson(depGraphPath);
-          schemaGate(dgSchema, dgData);
+        if (stackProfileExists) {
+          logDebug(logEnabled, "Gate=schema (stack-profile.json)");
+          if (!dryRun) {
+            const { loadSchemaFile } = await import("./schemaLoader.js");
+            const spSchema = await loadSchemaFile("StackProfile.schema.json");
+            const spData = await fs.readJson(stackProfilePath);
+            schemaGate(spSchema, spData);
+          }
         }
+        if (depGraphExists) {
+          logDebug(logEnabled, "Gate=schema (dep-graph.json)");
+          if (!dryRun) {
+            const { loadSchemaFile } = await import("./schemaLoader.js");
+            const dgSchema = await loadSchemaFile("DepGraph.schema.json");
+            const dgData = await fs.readJson(depGraphPath);
+            schemaGate(dgSchema, dgData);
+          }
+        }
+        emit({ type: "gate-end", gate: "schema", success: true });
+      } catch (err) {
+        const message =
+          (err as Error).message ?? `Schema gate failed: ${String(err)}`;
+        console.error("[redox][gate] schema failed:", message);
+        console.error(
+          "[redox][hint] Check JSON artifacts in .redox/ against the schemas in src/schemas/ (ApiMap, Routes, CoverageMatrix, etc.).",
+        );
+        failedGates.push({ gate: "schema", error: err as Error });
+        emit({ type: "gate-end", gate: "schema", success: false });
       }
-      emit({ type: "gate-end", gate: "schema", success: true });
     }
 
     if (gates.includes("coverage") && coverageData) {
@@ -397,78 +412,153 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
         endpointCount: allEndpoints.length,
         linkCount: links.length,
       });
-      if (!dryRun) {
-        coverageGate(allRoutes, allEndpoints, links);
+      try {
+        if (!dryRun) {
+          coverageGate(allRoutes, allEndpoints, links);
+        }
+        emit({ type: "gate-end", gate: "coverage", success: true });
+      } catch (err) {
+        const message =
+          (err as Error).message ?? `Coverage gate failed: ${String(err)}`;
+        console.error("[redox][gate] coverage failed:", message);
+        console.error(
+          "[redox][hint] Ensure coverage-matrix.json has non-empty routes/endpoints and links, and that use-cases.json and routes-*.json are wired correctly.",
+        );
+        failedGates.push({ gate: "coverage", error: err as Error });
+        emit({ type: "gate-end", gate: "coverage", success: false });
       }
-      emit({ type: "gate-end", gate: "coverage", success: true });
     }
 
     if (gates.includes("traceability") && coverageData) {
       emit({ type: "gate-start", gate: "traceability" });
       logDebug(logEnabled, "Gate=traceability");
-      if (!dryRun) {
-        traceabilityGate(coverageData);
+      try {
+        if (!dryRun) {
+          traceabilityGate(coverageData);
+        }
+        emit({ type: "gate-end", gate: "traceability", success: true });
+      } catch (err) {
+        const message =
+          (err as Error).message ?? `Traceability gate failed: ${String(err)}`;
+        console.error("[redox][gate] traceability failed:", message);
+        console.error(
+          "[redox][hint] Check that every route/endpoint in coverage-matrix.json participates in a Route↔Endpoint↔UseCase triad.",
+        );
+        failedGates.push({ gate: "traceability", error: err as Error });
+        emit({ type: "gate-end", gate: "traceability", success: false });
       }
-      emit({ type: "gate-end", gate: "traceability", success: true });
     }
 
     if (gates.includes("evidence")) {
       emit({ type: "gate-start", gate: "evidence" });
       const evidenceFile = path.join(evidenceDir, "evidence.jsonl");
       logDebug(logEnabled, "Gate=evidence", { evidenceFile });
-      if (!dryRun) {
-        await evidenceFileGate(root, evidenceFile);
+      try {
+        if (!dryRun) {
+          await evidenceFileGate(root, evidenceFile);
+        }
+        emit({ type: "gate-end", gate: "evidence", success: true });
+      } catch (err) {
+        const message =
+          (err as Error).message ?? `Evidence gate failed: ${String(err)}`;
+        console.error("[redox][gate] evidence failed:", message);
+        console.error(
+          "[redox][hint] Verify that evidence.jsonl exists and that tool calls are writing valid JSONL lines.",
+        );
+        failedGates.push({ gate: "evidence", error: err as Error });
+        emit({ type: "gate-end", gate: "evidence", success: false });
       }
-      emit({ type: "gate-end", gate: "evidence", success: true });
     }
 
     if (gates.includes("build")) {
       emit({ type: "gate-start", gate: "build" });
       logDebug(logEnabled, "Gate=build", { root, docsDir });
-      if (!dryRun) {
-        await buildGate(root, docsDir);
+      try {
+        if (!dryRun) {
+          await buildGate(root, docsDir);
+        }
+        emit({ type: "gate-end", gate: "build", success: true });
+      } catch (err) {
+        const message =
+          (err as Error).message ?? `Build gate failed: ${String(err)}`;
+        console.error("[redox][gate] build failed:", message);
+        console.error(
+          "[redox][hint] Check database.sql and ERD.mmd; ensure psql, mmdc/mermaid CLI, and any other build tools are installed.",
+        );
+        failedGates.push({ gate: "build", error: err as Error });
+        emit({ type: "gate-end", gate: "build", success: false });
       }
-      emit({ type: "gate-end", gate: "build", success: true });
     }
 
     if (rbacExists) {
       emit({ type: "gate-start", gate: "rbac" });
-      const rbacData = await fs.readJson(rbacPath);
-      const matrixRows =
-        rbacData.roleBindings?.map((b: any) => ({
-          role: b.roleId,
-          permission: b.permissionId,
-          evidence: (b.evidence ?? []).map(
-            (e: any) => `${e.path}:${e.startLine}-${e.endLine}`,
-          ),
-        })) ?? [];
-      logDebug(logEnabled, "Gate=rbac", { rows: matrixRows.length });
-      if (!dryRun && matrixRows.length) {
-        rbacGate(matrixRows);
+      try {
+        const rbacData = await fs.readJson(rbacPath);
+        const matrixRows =
+          rbacData.roleBindings?.map((b: any) => ({
+            role: b.roleId,
+            permission: b.permissionId,
+            evidence: (b.evidence ?? []).map(
+              (e: any) => `${e.path}:${e.startLine}-${e.endLine}`,
+            ),
+          })) ?? [];
+        logDebug(logEnabled, "Gate=rbac", { rows: matrixRows.length });
+        if (!dryRun && matrixRows.length) {
+          rbacGate(matrixRows);
+        }
+        emit({ type: "gate-end", gate: "rbac", success: true });
+      } catch (err) {
+        const message =
+          (err as Error).message ?? `RBAC gate failed: ${String(err)}`;
+        console.error("[redox][gate] rbac failed:", message);
+        console.error(
+          "[redox][hint] Inspect rbac.json and ensure roleBindings and permissions match your policy.",
+        );
+        failedGates.push({ gate: "rbac", error: err as Error });
+        emit({ type: "gate-end", gate: "rbac", success: false });
       }
-      emit({ type: "gate-end", gate: "rbac", success: true });
     }
 
     if (lgpdExists) {
       emit({ type: "gate-start", gate: "lgpd" });
-      const lgpdData = await fs.readJson(lgpdPath);
-      if (Array.isArray(lgpdData)) {
-        logDebug(logEnabled, "Gate=lgpd", { entries: lgpdData.length });
-        const nonEmpty = lgpdData.filter(
-          (m: any) =>
-            typeof m.legalBasis === "string" &&
-            m.legalBasis &&
-            typeof m.retention === "string" &&
-            m.retention,
-        );
-        if (!dryRun && nonEmpty.length) {
-          lgpdGate(lgpdData);
+      try {
+        const lgpdData = await fs.readJson(lgpdPath);
+        if (Array.isArray(lgpdData)) {
+          logDebug(logEnabled, "Gate=lgpd", { entries: lgpdData.length });
+          const nonEmpty = lgpdData.filter(
+            (m: any) =>
+              typeof m.legalBasis === "string" &&
+              m.legalBasis &&
+              typeof m.retention === "string" &&
+              m.retention,
+          );
+          if (!dryRun && nonEmpty.length) {
+            lgpdGate(lgpdData);
+          }
         }
+        emit({ type: "gate-end", gate: "lgpd", success: true });
+      } catch (err) {
+        const message =
+          (err as Error).message ?? `LGPD gate failed: ${String(err)}`;
+        console.error("[redox][gate] lgpd failed:", message);
+        console.error(
+          "[redox][hint] Review lgpd-map.json for missing or inconsistent legalBasis/retention entries.",
+        );
+        failedGates.push({ gate: "lgpd", error: err as Error });
+        emit({ type: "gate-end", gate: "lgpd", success: false });
       }
-      emit({ type: "gate-end", gate: "lgpd", success: true });
     }
 
-    emit({ type: "stage-end", success: true });
+    if (failedGates.length) {
+      console.error(
+        "[redox][check] One or more gates failed; see messages above for details and hints.",
+      );
+    }
+
+    emit({
+      type: "stage-end",
+      success: failedGates.length === 0,
+    });
     return;
   }
 
@@ -569,12 +659,54 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
     stage === "audit" ||
     stage === "all"
   ) {
-    await orchestrate("extract", opts);
-    await orchestrate("synthesize", {
-      ...opts,
-      profile: stage === "all" ? "dev" : stage,
-    });
-    await orchestrate("render", opts);
+    const resume = !!opts.resume;
+    let shouldExtract = true;
+    let shouldSynthesize = true;
+    let shouldRender = true;
+
+    if (resume) {
+      const docsDir = opts.engine.docsDir;
+      const evidenceDir = opts.engine.evidenceDir;
+      const hasApiMap = await fs.pathExists(
+        path.join(evidenceDir, "api-map.json"),
+      );
+      const hasDevDocs = await fs.pathExists(
+        path.join(docsDir, "Repository Guidelines.md"),
+      );
+      const hasUserDocs = await fs.pathExists(
+        path.join(docsDir, "User Guide.md"),
+      );
+      const hasAuditDocs = await fs.pathExists(
+        path.join(docsDir, "Function Point Report.md"),
+      );
+      const hasErd = await fs.pathExists(path.join(docsDir, "ERD.md"));
+
+      shouldExtract = !hasApiMap;
+      if (stage === "dev") {
+        shouldSynthesize = !hasDevDocs;
+      } else if (stage === "user") {
+        shouldSynthesize = !hasUserDocs;
+      } else if (stage === "audit") {
+        shouldSynthesize = !hasAuditDocs;
+      } else {
+        // "all" – treat synth as done only if all families exist
+        shouldSynthesize = !(hasDevDocs && hasUserDocs && hasAuditDocs);
+      }
+      shouldRender = !hasErd;
+    }
+
+    if (shouldExtract) {
+      await orchestrate("extract", opts);
+    }
+    if (shouldSynthesize) {
+      await orchestrate("synthesize", {
+        ...opts,
+        profile: stage === "all" ? "dev" : stage,
+      });
+    }
+    if (shouldRender) {
+      await orchestrate("render", opts);
+    }
     await orchestrate("check", opts);
     emit({ type: "stage-end", success: true });
   }

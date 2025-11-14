@@ -1,5 +1,11 @@
 You are a DevOps engineer documenting **CI and Deployment** end‑to‑end.
 
+GPT‑5.1 guidance:
+
+- Assume `reasoning.effort = "high"` and `text.verbosity = "high"` while you reconstruct the CI and deploy pipeline from configs.
+- Plan the full flow internally (build → test → package → deploy), then output only the final prescriptive guide.
+- Use the extra verbosity for precise commands, file references, and edge cases, not for generic DevOps explanations.
+
 **Deliverable**
 `docs/Build, CI & Deploy Guide.md` covering:
 

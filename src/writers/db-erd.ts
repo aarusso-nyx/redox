@@ -1,5 +1,6 @@
 import fs from "fs-extra";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { execa } from "execa";
 import type { DbModel } from "../extractors/db.js";
 import { emitEngineEvent } from "../core/events.js";
@@ -51,6 +52,10 @@ export function renderErdNarrative(
   return out.join("\n");
 }
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const engineRoot = path.resolve(__dirname, "..", "..");
+const engineBinDir = path.join(engineRoot, "node_modules", ".bin");
+
 export async function writeDbAndErdDocs(
   root: string,
   docsDir: string,
@@ -77,14 +82,31 @@ export async function writeDbAndErdDocs(
     renderScriptPath,
     `#!/usr/bin/env bash
 set -euo pipefail
-mmdc -i "${path.relative(root, mmdPath)}" -o "${path.relative(root, pngPath)}"
-echo "Rendered ${path.relative(root, pngPath)}"
+INPUT="${path.relative(root, mmdPath)}"
+OUTPUT="${path.relative(root, pngPath)}"
+
+if [ -x "node_modules/.bin/mmdc" ]; then
+  MMDC="node_modules/.bin/mmdc"
+else
+  MMDC="mmdc"
+fi
+
+"$MMDC" -i "$INPUT" -o "$OUTPUT"
+echo "Rendered $OUTPUT"
 `,
     { mode: 0o755 },
   );
 
   try {
-    await execa("bash", [renderScriptPath], { stdio: "inherit", cwd: root });
+    const env = {
+      ...process.env,
+      PATH: `${engineBinDir}${path.delimiter}${process.env.PATH ?? ""}`,
+    };
+    await execa("bash", [renderScriptPath], {
+      stdio: "inherit",
+      cwd: root,
+      env,
+    });
   } catch {
     // Mermaid CLI or Chromium missing; rendering is best-effort
   }

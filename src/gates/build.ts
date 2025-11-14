@@ -1,6 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { execa } from "execa";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const engineRoot = path.resolve(__dirname, "..", "..");
+const engineBinDir = path.join(engineRoot, "node_modules", ".bin");
 
 export async function buildGate(root: string, docsDir: string) {
   const errors: string[] = [];
@@ -10,9 +15,11 @@ export async function buildGate(root: string, docsDir: string) {
     try {
       await execa("psql", ["-q", "-f", ddlPath], { cwd: root });
     } catch (err: any) {
-      errors.push(
-        `DDL validation failed (psql): ${err?.shortMessage ?? err?.message ?? String(err)}`,
-      );
+      if (err?.code !== "ENOENT") {
+        errors.push(
+          `DDL validation failed (psql): ${err?.shortMessage ?? err?.message ?? String(err)}`,
+        );
+      }
     }
   }
 
@@ -20,11 +27,21 @@ export async function buildGate(root: string, docsDir: string) {
   if (await fileExists(erdPath)) {
     const tmpOut = path.join(docsDir, "diagrams", ".erd-build.png");
     try {
-      await execa("mmdc", ["-i", erdPath, "-o", tmpOut], { cwd: root });
+      const env = {
+        ...process.env,
+        PATH: [
+          path.join(root, "node_modules", ".bin"),
+          engineBinDir,
+          process.env.PATH ?? "",
+        ].join(path.delimiter),
+      };
+      await execa("mmdc", ["-i", erdPath, "-o", tmpOut], { cwd: root, env });
     } catch (err: any) {
-      errors.push(
-        `ERD render failed (mmdc): ${err?.shortMessage ?? err?.message ?? String(err)}`,
-      );
+      if (err?.code !== "ENOENT") {
+        errors.push(
+          `ERD render failed (mmdc): ${err?.shortMessage ?? err?.message ?? String(err)}`,
+        );
+      }
     } finally {
       try {
         if (await fileExists(tmpOut)) {

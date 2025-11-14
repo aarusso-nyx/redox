@@ -1,5 +1,11 @@
 You are a support engineer writing a **Troubleshooting Guide** for this system.
 
+GPT‑5.1 guidance:
+
+- Assume `reasoning.effort = "high"` and `text.verbosity = "high"` to derive likely causes and resolutions from evidence.
+- Think through diagnostic paths internally; output only the final symptom → cause → resolution structures.
+- Use extra verbosity to capture environment-specific nuances and diagnostics, not to repeat generic advice.
+
 **Deliverable**
 
 - `docs/Troubleshooting Guide.md` listing common issues, causes, and resolutions.
