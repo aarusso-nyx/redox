@@ -7,11 +7,7 @@ import { buildGate } from "../gates/build.js";
 import { traceabilityGate } from "../gates/traceability.js";
 import { rbacGate } from "../gates/rbac.js";
 import { lgpdGate } from "../gates/compliance.js";
-import { ensurePlaceholderArtifacts } from "./artifacts.js";
-import { buildRbacArtifact } from "./rbacBuilder.js";
-import { buildLgpdMap } from "./lgpdBuilder.js";
-import { buildStackProfile } from "./stackProfile.js";
-import { buildDepGraph } from "./depGraphBuilder.js";
+import { runArtifactBuilders } from "./artifactBuilders.js";
 import { emitEngineEvent, type EngineEvent } from "./events.js";
 import type { EngineContext } from "./context.js";
 import {
@@ -26,6 +22,11 @@ import { extractBlade } from "../extractors/blade.js";
 import { extractReactRoutes } from "../extractors/react-routes.js";
 import { angularRoutes } from "../extractors/fe-angular.js";
 import { nestControllers, type NestRoute } from "../extractors/api-nest.js";
+import {
+  buildApiMapFromRoutes,
+  writeApiMapArtifact,
+} from "./apiMapBuilder.js";
+import { writeRoutesArtifacts } from "./routesArtifacts.js";
 import { writeDbAndErdFromModel } from "../writers/dev-docs.js";
 import {
   writeDevDocsLLM,
@@ -76,204 +77,6 @@ function logDebug(enabled: boolean, message: string, detail?: unknown) {
   console.log(`[redox][debug] ${message}`, detail ?? "");
 }
 
-function buildApiMap(routes: LaravelRoute[], nestRoutes: NestRoute[]) {
-  const endpoints: any[] = [];
-  const now = new Date().toISOString();
-
-  const normalizePath = (uri: string) => `/${uri.replace(/^\/?/, "")}`;
-
-  for (const r of routes) {
-    const rawMethods = String(r.method ?? "GET").split("|");
-    for (const raw of rawMethods) {
-      const method = raw.trim().toUpperCase();
-      if (!method) continue;
-
-      const pathStr = normalizePath(r.uri ?? "/");
-
-      let controllerFile = r.file ?? "";
-      let controllerClass: string | undefined;
-      let methodName: string | undefined;
-
-      if (r.action && r.action.includes("@")) {
-        const [classFqn, mName] = r.action.split("@");
-        methodName = mName;
-        const withoutRoot = classFqn.replace(/^\\?App\\/, "app\\");
-        const segments = withoutRoot.split("\\");
-        controllerClass = segments[segments.length - 1] ?? undefined;
-        controllerFile = `${segments.join("/")}.php`;
-      } else if (!controllerFile && r.uri) {
-        controllerFile = "routes/web.php";
-      }
-
-      if (!controllerFile) continue;
-
-      const id = `${method} ${pathStr}`;
-      endpoints.push({
-        id,
-        method,
-        path: pathStr,
-        controller: {
-          file: controllerFile,
-          class: controllerClass,
-          methodName,
-        },
-        source: "routes",
-        evidence: [
-          {
-            path: controllerFile,
-            startLine: 1,
-            endLine: 1,
-          },
-        ],
-      });
-    }
-  }
-
-  for (const r of nestRoutes) {
-    const base = r.basePath?.startsWith("/")
-      ? r.basePath
-      : `/${r.basePath ?? ""}`.replace(/\/+$/, "");
-    const suffix = r.path ? `/${r.path.replace(/^\/+/, "")}` : "";
-    const fullPath = `${base}${suffix || ""}` || "/";
-    const id = `${r.httpMethod} ${fullPath}`;
-    endpoints.push({
-      id,
-      method: r.httpMethod,
-      path: fullPath,
-      controller: {
-        file: r.file,
-        class: r.controller,
-        methodName: r.methodName,
-      },
-      source: "routes",
-      evidence: [
-        {
-          path: r.file,
-          startLine: 1,
-          endLine: 1,
-        },
-      ],
-    });
-  }
-
-  if (!endpoints.length) return null;
-
-  return {
-    schemaVersion: "1.0",
-    generatedAt: now,
-    endpoints,
-  };
-}
-
-async function writeApiMapArtifact(
-  engine: EngineContext,
-  apiMap: any,
-  logEnabled: boolean,
-) {
-  const outPath = path.join(engine.evidenceDir, "api-map.json");
-  await fs.ensureDir(engine.evidenceDir);
-  await fs.writeJson(outPath, apiMap, { spaces: 2 });
-  logDebug(logEnabled, "ApiMap artifact written", {
-    path: outPath,
-    endpointCount: apiMap.endpoints.length,
-  });
-}
-
-async function writeRoutesArtifacts(
-  engine: EngineContext,
-  frontend: any,
-  logEnabled: boolean,
-) {
-  await fs.ensureDir(engine.evidenceDir);
-  const now = new Date().toISOString();
-
-  const reactRoutes = frontend?.react?.routes ?? [];
-  if (reactRoutes.length) {
-    const routes = reactRoutes.map((r: any, idx: number) => ({
-      id: `react:${r.path ?? idx}`,
-      path: r.path ?? "/",
-      parentId: undefined,
-      children: [] as string[],
-      component: {
-        name: r.element ?? undefined,
-        file: r.file,
-        startLine: 1,
-        endLine: 1,
-      },
-      lazy: false,
-      guards: [] as string[],
-      resolvers: [] as string[],
-      params: [] as string[],
-      dataKeys: [] as string[],
-      roles: [] as string[],
-      apiCalls: [] as any[],
-      evidence: [
-        {
-          path: r.file,
-          startLine: 1,
-          endLine: 1,
-        },
-      ],
-    }));
-    const doc = {
-      schemaVersion: "1.0",
-      generatedAt: now,
-      framework: "react",
-      routes,
-    };
-    const out = path.join(engine.evidenceDir, "routes-react.json");
-    await fs.writeJson(out, doc, { spaces: 2 });
-    logDebug(logEnabled, "Routes artifact written (react)", {
-      path: out,
-      routes: routes.length,
-    });
-  }
-
-  const angular = frontend?.angular?.routes ?? [];
-  if (angular.length) {
-    const routes = angular.map((r: any, idx: number) => ({
-      id: `angular:${r.path ?? idx}`,
-      path: r.path ?? "/",
-      parentId: undefined,
-      children: [] as string[],
-      component: r.component
-        ? {
-            name: r.component ?? undefined,
-            file: r.file,
-            startLine: 1,
-            endLine: 1,
-          }
-        : undefined,
-      lazy: false,
-      guards: [] as string[],
-      resolvers: [] as string[],
-      params: [] as string[],
-      dataKeys: [] as string[],
-      roles: [] as string[],
-      apiCalls: [] as any[],
-      evidence: [
-        {
-          path: r.file,
-          startLine: 1,
-          endLine: 1,
-        },
-      ],
-    }));
-    const doc = {
-      schemaVersion: "1.0",
-      generatedAt: now,
-      framework: "angular",
-      routes,
-    };
-    const out = path.join(engine.evidenceDir, "routes-angular.json");
-    await fs.writeJson(out, doc, { spaces: 2 });
-    logDebug(logEnabled, "Routes artifact written (angular)", {
-      path: out,
-      routes: routes.length,
-    });
-  }
-}
-
 async function runExtract(
   engine: EngineContext,
   dryRun: boolean,
@@ -313,11 +116,6 @@ async function runExtract(
     }
   }
   dbModelCache = model;
-
-  // Stack profile (LLM-based repo scanner)
-  await buildStackProfile(engine, { dryRun, debug: logEnabled });
-  // TS/JS dependency graph + summary doc
-  await buildDepGraph(engine, { dryRun, debug: logEnabled });
 
   // Laravel routes (if applicable)
   let routes: LaravelRoute[] = [];
@@ -394,7 +192,7 @@ async function runExtract(
       frontendMode,
     });
   } else {
-    const apiMap = buildApiMap(routes, nestRoutes);
+    const apiMap = buildApiMapFromRoutes(routes, nestRoutes);
     apiMapCache = apiMap;
     feRoutesCache = {
       react: frontendCache.react,
@@ -434,9 +232,11 @@ async function runRender(
 
   await buildDDLFromMigrations(engine.root, engine.docsDir);
   await writeDbAndErdFromModel(engine.root, engine.docsDir, dbModelCache);
-  await ensurePlaceholderArtifacts(engine);
-  await buildRbacArtifact(engine, dbModelCache);
-  await buildLgpdMap(engine, dbModelCache);
+  await runArtifactBuilders("render", engine, {
+    dbModel: dbModelCache,
+    dryRun,
+    debug: logEnabled,
+  });
 }
 
 export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
@@ -456,14 +256,11 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
     const docsDir = opts.engine.docsDir;
     const evidenceDir = opts.engine.evidenceDir;
 
-    if (!dryRun) {
-      try {
-        const { buildCoverageMatrix } = await import("./coverageBuilder.js");
-        await buildCoverageMatrix(opts.engine);
-      } catch {
-        // Coverage matrix build is best-effort; schema/coverage gates will surface issues if critical
-      }
-    }
+    await runArtifactBuilders("check", opts.engine, {
+      dbModel: dbModelCache,
+      dryRun,
+      debug: logEnabled,
+    });
 
     const coveragePath = path.join(evidenceDir, "coverage-matrix.json");
     const apiMapPath = path.join(evidenceDir, "api-map.json");

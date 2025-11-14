@@ -89,7 +89,7 @@ ${src}
       model:
         process.env.REDOX_MODEL_TRANSLATOR ??
         process.env.REDOX_MODEL_WRITER ??
-        "gpt-4.1-mini",
+        "chatgpt-5.1",
       temperature: 0.1,
       agent: `translator/${lang}`,
       stage: "translate",

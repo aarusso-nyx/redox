@@ -43,7 +43,7 @@ ${JSON.stringify(context, null, 2)}
   const schema = await loadSchemaFile("StackProfile.schema.json");
 
   const res = await askLLM(userPrompt, {
-    model: process.env.REDOX_MODEL_WRITER ?? "gpt-4.1",
+    model: process.env.REDOX_MODEL_WRITER ?? "chatgpt-5.1",
     jsonSchema: schema,
     agent: "repo-scanner",
     stage: "extract",

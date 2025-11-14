@@ -69,7 +69,7 @@ describe("event-based state aggregation (UI core)", () => {
         type: "llm-call",
         timestamp: new Date().toISOString(),
         agent: "overview-stack.md",
-        model: "gpt-4.1",
+        model: "chatgpt-5.1",
         stage: "synthesize",
         data: { inputTokens: 100, outputTokens: 50, totalTokens: 150 },
       },
@@ -77,7 +77,7 @@ describe("event-based state aggregation (UI core)", () => {
         type: "llm-call",
         timestamp: new Date().toISOString(),
         agent: "overview-stack.md",
-        model: "gpt-4.1",
+        model: "chatgpt-5.1",
         stage: "synthesize",
         data: { inputTokens: 20, outputTokens: 10, totalTokens: 30 },
       },
@@ -122,4 +122,3 @@ describe("event-based state aggregation (UI core)", () => {
     expect(state.gatesStatus.schema.ended).toBe(1);
   });
 });
-

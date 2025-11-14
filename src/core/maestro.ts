@@ -93,7 +93,7 @@ ${JSON.stringify(state, null, 2)}
     model:
       process.env.REDOX_MODEL_MAESTRO ??
       process.env.REDOX_MODEL_WRITER ??
-      "gpt-4.1",
+      "chatgpt-5.1",
     agent: "maestro",
     stage: "orchestrate",
     meta: { root: engine.root, docsDir: engine.docsDir },
