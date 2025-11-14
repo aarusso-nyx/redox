@@ -1,4 +1,5 @@
 import { execa } from "execa";
+import type { Console } from "node:console";
 
 type CheckResult = { name: string; pass: boolean; info?: string };
 
@@ -21,7 +22,8 @@ async function hasCmd(cmd: string) {
 
 export async function checkEnvironment(log: Console = console) {
   const results: CheckResult[] = [];
-  const add = (name: string, pass: boolean, info?: string) => results.push({ name, pass, info });
+  const add = (name: string, pass: boolean, info?: string) =>
+    results.push({ name, pass, info });
 
   // Node version
   const nodeOk = (() => {
@@ -77,8 +79,9 @@ export async function checkEnvironment(log: Console = console) {
   }
   const allPass = results.every((r) => r.pass || r.name.includes("(optional)"));
   if (!allPass) {
-    log.warn("Some requirements not met. The pipeline will skip or soft-fail where possible.");
+    log.warn(
+      "Some requirements not met. The pipeline will skip or soft-fail where possible.",
+    );
   }
   return allPass;
 }
-

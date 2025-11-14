@@ -8,14 +8,18 @@ import { traceabilityGate } from "../gates/traceability.js";
 import { rbacGate } from "../gates/rbac.js";
 import { lgpdGate } from "../gates/compliance.js";
 import { ensurePlaceholderArtifacts } from "./artifacts.js";
-import { buildCoverageMatrix } from "./coverageBuilder.js";
 import { buildRbacArtifact } from "./rbacBuilder.js";
 import { buildLgpdMap } from "./lgpdBuilder.js";
 import { buildStackProfile } from "./stackProfile.js";
 import { buildDepGraph } from "./depGraphBuilder.js";
 import { emitEngineEvent, type EngineEvent } from "./events.js";
 import type { EngineContext } from "./context.js";
-import { connectByEnv, introspect, buildDDLFromMigrations, type DbModel } from "../extractors/db.js";
+import {
+  connectByEnv,
+  introspect,
+  buildDDLFromMigrations,
+  type DbModel,
+} from "../extractors/db.js";
 import { laravelRoutes, type LaravelRoute } from "../extractors/api-laravel.js";
 import { detectFrontend } from "../extractors/frontend-detect.js";
 import { extractBlade } from "../extractors/blade.js";
@@ -23,10 +27,29 @@ import { extractReactRoutes } from "../extractors/react-routes.js";
 import { angularRoutes } from "../extractors/fe-angular.js";
 import { nestControllers, type NestRoute } from "../extractors/api-nest.js";
 import { writeDbAndErdFromModel } from "../writers/dev-docs.js";
-import { writeDevDocsLLM, writeUserDocsLLM, writeAuditDocsLLM } from "../writers/llm-writers.js";
-import { architectReview, qaReview, opsReview, securityReview, docsReview } from "../reviewers/reviewers.js";
+import {
+  writeDevDocsLLM,
+  writeUserDocsLLM,
+  writeAuditDocsLLM,
+} from "../writers/llm-writers.js";
+import {
+  architectReview,
+  qaReview,
+  opsReview,
+  securityReview,
+  docsReview,
+} from "../reviewers/reviewers.js";
 
-type Stage = "dev" | "user" | "audit" | "all" | "extract" | "synthesize" | "render" | "check" | "review";
+type Stage =
+  | "dev"
+  | "user"
+  | "audit"
+  | "all"
+  | "extract"
+  | "synthesize"
+  | "render"
+  | "check"
+  | "review";
 
 type OrchestratorOpts = {
   engine: EngineContext;
@@ -50,7 +73,6 @@ let feRoutesCache: any | null = null;
 
 function logDebug(enabled: boolean, message: string, detail?: unknown) {
   if (!enabled) return;
-  // eslint-disable-next-line no-console
   console.log(`[redox][debug] ${message}`, detail ?? "");
 }
 
@@ -108,7 +130,9 @@ function buildApiMap(routes: LaravelRoute[], nestRoutes: NestRoute[]) {
   }
 
   for (const r of nestRoutes) {
-    const base = r.basePath?.startsWith("/") ? r.basePath : `/${r.basePath ?? ""}`.replace(/\/+$/, "");
+    const base = r.basePath?.startsWith("/")
+      ? r.basePath
+      : `/${r.basePath ?? ""}`.replace(/\/+$/, "");
     const suffix = r.path ? `/${r.path.replace(/^\/+/, "")}` : "";
     const fullPath = `${base}${suffix || ""}` || "/";
     const id = `${r.httpMethod} ${fullPath}`;
@@ -141,7 +165,11 @@ function buildApiMap(routes: LaravelRoute[], nestRoutes: NestRoute[]) {
   };
 }
 
-async function writeApiMapArtifact(engine: EngineContext, apiMap: any, logEnabled: boolean) {
+async function writeApiMapArtifact(
+  engine: EngineContext,
+  apiMap: any,
+  logEnabled: boolean,
+) {
   const outPath = path.join(engine.evidenceDir, "api-map.json");
   await fs.ensureDir(engine.evidenceDir);
   await fs.writeJson(outPath, apiMap, { spaces: 2 });
@@ -151,7 +179,11 @@ async function writeApiMapArtifact(engine: EngineContext, apiMap: any, logEnable
   });
 }
 
-async function writeRoutesArtifacts(engine: EngineContext, frontend: any, logEnabled: boolean) {
+async function writeRoutesArtifacts(
+  engine: EngineContext,
+  frontend: any,
+  logEnabled: boolean,
+) {
   await fs.ensureDir(engine.evidenceDir);
   const now = new Date().toISOString();
 
@@ -191,7 +223,10 @@ async function writeRoutesArtifacts(engine: EngineContext, frontend: any, logEna
     };
     const out = path.join(engine.evidenceDir, "routes-react.json");
     await fs.writeJson(out, doc, { spaces: 2 });
-    logDebug(logEnabled, "Routes artifact written (react)", { path: out, routes: routes.length });
+    logDebug(logEnabled, "Routes artifact written (react)", {
+      path: out,
+      routes: routes.length,
+    });
   }
 
   const angular = frontend?.angular?.routes ?? [];
@@ -232,11 +267,18 @@ async function writeRoutesArtifacts(engine: EngineContext, frontend: any, logEna
     };
     const out = path.join(engine.evidenceDir, "routes-angular.json");
     await fs.writeJson(out, doc, { spaces: 2 });
-    logDebug(logEnabled, "Routes artifact written (angular)", { path: out, routes: routes.length });
+    logDebug(logEnabled, "Routes artifact written (angular)", {
+      path: out,
+      routes: routes.length,
+    });
   }
 }
 
-async function runExtract(engine: EngineContext, dryRun: boolean, logEnabled: boolean) {
+async function runExtract(
+  engine: EngineContext,
+  dryRun: boolean,
+  logEnabled: boolean,
+) {
   logDebug(logEnabled, "Stage=extract", { root: engine.root });
   // DB introspection via Postgres catalogs (env-based strategy)
   let model: any = { tables: [], fks: [], indexes: [] };
@@ -274,6 +316,8 @@ async function runExtract(engine: EngineContext, dryRun: boolean, logEnabled: bo
 
   // Stack profile (LLM-based repo scanner)
   await buildStackProfile(engine, { dryRun, debug: logEnabled });
+  // TS/JS dependency graph + summary doc
+  await buildDepGraph(engine, { dryRun, debug: logEnabled });
 
   // Laravel routes (if applicable)
   let routes: LaravelRoute[] = [];
@@ -292,7 +336,9 @@ async function runExtract(engine: EngineContext, dryRun: boolean, logEnabled: bo
     logDebug(logEnabled, "Laravel routes: extracted", { count: routes.length });
     try {
       nestRoutes = nestControllers(engine.root);
-      logDebug(logEnabled, "NestJS routes: extracted", { count: nestRoutes.length });
+      logDebug(logEnabled, "NestJS routes: extracted", {
+        count: nestRoutes.length,
+      });
     } catch (err) {
       logDebug(
         logEnabled,
@@ -308,12 +354,21 @@ async function runExtract(engine: EngineContext, dryRun: boolean, logEnabled: bo
   let frontendMode = "unknown";
   if (dryRun) {
     logDebug(logEnabled, "Frontend detection (dry-run)", {
-      patterns: ["resources/views/**/*.blade.php", "resources/js/**/*.{tsx,jsx,ts,js}", "src/**/*.routing.*"],
+      patterns: [
+        "resources/views/**/*.blade.php",
+        "resources/js/**/*.{tsx,jsx,ts,js}",
+        "src/**/*.routing.*",
+      ],
     });
   } else {
     frontendMode = await detectFrontend(engine.root);
   }
-  frontendCache = { mode: frontendMode, blade: null as any, react: null as any, angular: null as any };
+  frontendCache = {
+    mode: frontendMode,
+    blade: null as any,
+    react: null as any,
+    angular: null as any,
+  };
   if (!dryRun) {
     if (frontendMode === "blade" || frontendMode === "mixed") {
       logDebug(logEnabled, "Blade extraction", { root: engine.root });
@@ -321,7 +376,9 @@ async function runExtract(engine: EngineContext, dryRun: boolean, logEnabled: bo
     }
     if (frontendMode === "react" || frontendMode === "mixed") {
       logDebug(logEnabled, "React routes extraction", { root: engine.root });
-      frontendCache.react = await extractReactRoutes(engine.root).catch(() => null);
+      frontendCache.react = await extractReactRoutes(engine.root).catch(
+        () => null,
+      );
     }
     if (frontendMode === "angular" || frontendMode === "mixed") {
       logDebug(logEnabled, "Angular routes extraction", { root: engine.root });
@@ -339,7 +396,10 @@ async function runExtract(engine: EngineContext, dryRun: boolean, logEnabled: bo
   } else {
     const apiMap = buildApiMap(routes, nestRoutes);
     apiMapCache = apiMap;
-    feRoutesCache = { react: frontendCache.react, angular: frontendCache.angular };
+    feRoutesCache = {
+      react: frontendCache.react,
+      angular: frontendCache.angular,
+    };
     if (apiMap) {
       await writeApiMapArtifact(engine, apiMap, logEnabled);
     }
@@ -353,7 +413,11 @@ async function runExtract(engine: EngineContext, dryRun: boolean, logEnabled: bo
   };
 }
 
-async function runRender(engine: EngineContext, dryRun: boolean, logEnabled: boolean) {
+async function runRender(
+  engine: EngineContext,
+  dryRun: boolean,
+  logEnabled: boolean,
+) {
   logDebug(logEnabled, "Stage=render", { hasDbModel: !!dbModelCache });
   if (!dbModelCache) return;
 
@@ -362,7 +426,8 @@ async function runRender(engine: EngineContext, dryRun: boolean, logEnabled: boo
       db: "Run migrations if Laravel and pg_dump schema-only to database.sql",
       docs: "Write ERD artifacts under docs/",
       scripts: "Ensure docs/scripts/render-mermaid.sh exists",
-      artifacts: "Ensure evidence directory exists under docsDir/.redox and write RBAC/LGPD machine artifacts if DB model is available",
+      artifacts:
+        "Ensure evidence directory exists under docsDir/.redox and write RBAC/LGPD machine artifacts if DB model is available",
     });
     return;
   }
@@ -420,7 +485,9 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
       rbacPath: fs.existsSync(rbacPath) ? rbacPath : null,
       lgpdPath: fs.existsSync(lgpdPath) ? lgpdPath : null,
       fpPath: fs.existsSync(fpPath) ? fpPath : null,
-      stackProfilePath: fs.existsSync(stackProfilePath) ? stackProfilePath : null,
+      stackProfilePath: fs.existsSync(stackProfilePath)
+        ? stackProfilePath
+        : null,
       depGraphPath: fs.existsSync(depGraphPath) ? depGraphPath : null,
     });
 
@@ -456,7 +523,9 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
         logDebug(logEnabled, "Gate=schema (coverage-matrix.json)");
         if (!dryRun) {
           const { loadSchemaFile } = await import("./schemaLoader.js");
-          const coverageSchema = await loadSchemaFile("CoverageMatrix.schema.json");
+          const coverageSchema = await loadSchemaFile(
+            "CoverageMatrix.schema.json",
+          );
           schemaGate(coverageSchema, coverageData);
         }
       }
@@ -501,8 +570,12 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
 
     if (gates.includes("coverage") && coverageData) {
       emit({ type: "gate-start", gate: "coverage" });
-      const allRoutes = (coverageData.routes ?? []).map((id: string) => ({ id }));
-      const allEndpoints = (coverageData.endpoints ?? []).map((id: string) => ({ id }));
+      const allRoutes = (coverageData.routes ?? []).map((id: string) => ({
+        id,
+      }));
+      const allEndpoints = (coverageData.endpoints ?? []).map((id: string) => ({
+        id,
+      }));
       const links = (coverageData.links ?? []).map((l: any) => ({
         routeId: l.routeId,
         endpointId: l.endpointId,
@@ -554,7 +627,9 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
         rbacData.roleBindings?.map((b: any) => ({
           role: b.roleId,
           permission: b.permissionId,
-          evidence: (b.evidence ?? []).map((e: any) => `${e.path}:${e.startLine}-${e.endLine}`),
+          evidence: (b.evidence ?? []).map(
+            (e: any) => `${e.path}:${e.startLine}-${e.endLine}`,
+          ),
         })) ?? [];
       logDebug(logEnabled, "Gate=rbac", { rows: matrixRows.length });
       if (!dryRun && matrixRows.length) {
@@ -569,7 +644,11 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
       if (Array.isArray(lgpdData)) {
         logDebug(logEnabled, "Gate=lgpd", { entries: lgpdData.length });
         const nonEmpty = lgpdData.filter(
-          (m: any) => typeof m.legalBasis === "string" && m.legalBasis && typeof m.retention === "string" && m.retention,
+          (m: any) =>
+            typeof m.legalBasis === "string" &&
+            m.legalBasis &&
+            typeof m.retention === "string" &&
+            m.retention,
         );
         if (!dryRun && nonEmpty.length) {
           lgpdGate(lgpdData);
@@ -667,16 +746,27 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
         const outPath = path.join(docsDir, file);
         await fs.ensureDir(path.dirname(outPath));
         await fs.writeFile(outPath, rr.rawMarkdown, "utf8");
-        logDebug(logEnabled, "Review written", { reviewer: key, path: outPath });
+        logDebug(logEnabled, "Review written", {
+          reviewer: key,
+          path: outPath,
+        });
       }
     }
     emit({ type: "stage-end", success: true });
     return;
   }
 
-  if (stage === "dev" || stage === "user" || stage === "audit" || stage === "all") {
+  if (
+    stage === "dev" ||
+    stage === "user" ||
+    stage === "audit" ||
+    stage === "all"
+  ) {
     await orchestrate("extract", opts);
-    await orchestrate("synthesize", { ...opts, profile: stage === "all" ? "dev" : stage });
+    await orchestrate("synthesize", {
+      ...opts,
+      profile: stage === "all" ? "dev" : stage,
+    });
     await orchestrate("render", opts);
     await orchestrate("check", opts);
     emit({ type: "stage-end", success: true });

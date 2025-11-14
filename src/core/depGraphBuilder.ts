@@ -6,7 +6,10 @@ import { askLLM } from "./llm.js";
 import { loadPrompt } from "./promptLoader.js";
 import { emitEngineEvent } from "./events.js";
 
-export async function buildDepGraph(engine: EngineContext, opts: { dryRun: boolean; debug: boolean }) {
+export async function buildDepGraph(
+  engine: EngineContext,
+  opts: { dryRun: boolean; debug: boolean },
+) {
   const candidates = [
     "src/main.ts",
     "src/index.ts",
@@ -18,15 +21,17 @@ export async function buildDepGraph(engine: EngineContext, opts: { dryRun: boole
 
   const entry = candidates
     .map((rel) => path.join(engine.root, rel))
-    .find((p) => fs.pathExistsSync ? fs.pathExistsSync(p) : false);
+    .find((p) => (fs.pathExistsSync ? fs.pathExistsSync(p) : false));
 
   if (!entry) return;
 
   const graphOut = path.join(engine.evidenceDir, "dep-graph.json");
 
   if (opts.dryRun) {
-    // eslint-disable-next-line no-console
-    console.log("[redox][debug] (dry-run) Would build TS dep graph from", entry);
+    console.log(
+      "[redox][debug] (dry-run) Would build TS dep graph from",
+      entry,
+    );
   } else {
     const graph = await tsDepGraph(entry);
     await fs.ensureDir(engine.evidenceDir);
@@ -56,13 +61,14 @@ ${JSON.stringify(context, null, 2)}
   const mdOut = path.join(engine.docsDir, "Dependency Graph.md");
 
   if (opts.debug) {
-    // eslint-disable-next-line no-console
     console.log("[redox][debug] dep-graph user prompt", userPrompt);
   }
 
   if (opts.dryRun) {
-    // eslint-disable-next-line no-console
-    console.log("[redox][debug] (dry-run) Would write dependency graph summary to", mdOut);
+    console.log(
+      "[redox][debug] (dry-run) Would write dependency graph summary to",
+      mdOut,
+    );
     return;
   }
 
@@ -74,13 +80,14 @@ ${JSON.stringify(context, null, 2)}
   });
   const anyR: any = res as any;
   const text =
-    anyR.output_text ?? anyR.output?.[0]?.content?.[0]?.text ?? JSON.stringify(anyR, null, 2);
+    anyR.output_text ??
+    anyR.output?.[0]?.content?.[0]?.text ??
+    JSON.stringify(anyR, null, 2);
 
   await fs.ensureDir(engine.docsDir);
   await fs.writeFile(mdOut, text, "utf8");
 
   if (opts.debug) {
-    // eslint-disable-next-line no-console
     console.log("[redox][debug] dep graph summary written", { path: mdOut });
   }
 

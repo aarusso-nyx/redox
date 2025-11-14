@@ -22,7 +22,8 @@ function extractRoutesFromArrayLiteral(
     if (!pathProp || !pathProp.isKind(SyntaxKind.PropertyAssignment)) continue;
 
     const initializer = pathProp.getInitializer();
-    if (!initializer || initializer.getKind() !== SyntaxKind.StringLiteral) continue;
+    if (!initializer || initializer.getKind() !== SyntaxKind.StringLiteral)
+      continue;
     const pathText = initializer.getText().slice(1, -1);
 
     const route: AngularRoute = { file: filePath, path: pathText };
@@ -36,13 +37,19 @@ function extractRoutesFromArrayLiteral(
     const redirectProp = obj.getProperty("redirectTo");
     if (redirectProp && redirectProp.isKind(SyntaxKind.PropertyAssignment)) {
       const init = redirectProp.getInitializer();
-      route.redirectTo = init && init.getKind() === SyntaxKind.StringLiteral ? init.getText().slice(1, -1) : null;
+      route.redirectTo =
+        init && init.getKind() === SyntaxKind.StringLiteral
+          ? init.getText().slice(1, -1)
+          : null;
     }
 
     const pathMatchProp = obj.getProperty("pathMatch");
     if (pathMatchProp && pathMatchProp.isKind(SyntaxKind.PropertyAssignment)) {
       const init = pathMatchProp.getInitializer();
-      route.pathMatch = init && init.getKind() === SyntaxKind.StringLiteral ? init.getText().slice(1, -1) : null;
+      route.pathMatch =
+        init && init.getKind() === SyntaxKind.StringLiteral
+          ? init.getText().slice(1, -1)
+          : null;
     }
 
     routes.push(route);
@@ -66,7 +73,8 @@ export function angularRoutes(root = "."): AngularRoute[] {
 
     for (const v of sf.getVariableDeclarations()) {
       const init = v.getInitializer();
-      if (!init || init.getKind() !== SyntaxKind.ArrayLiteralExpression) continue;
+      if (!init || init.getKind() !== SyntaxKind.ArrayLiteralExpression)
+        continue;
       const arr = init.asKindOrThrow(SyntaxKind.ArrayLiteralExpression);
       routes.push(...extractRoutesFromArrayLiteral(filePath, arr));
     }

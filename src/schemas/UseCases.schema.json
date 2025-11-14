@@ -45,8 +45,16 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "routeIds": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
-        "endpointIds": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+        "routeIds": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        },
+        "endpointIds": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        }
       }
     },
     "Step": {
@@ -111,7 +119,10 @@
           "default": []
         },
         "postconditions": { "type": "array", "items": { "type": "string" } },
-        "acceptanceCriteria": { "type": "array", "items": { "type": "string" } },
+        "acceptanceCriteria": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
         "refs": { "$ref": "#/$defs/Ref" },
         "inferred": { "type": "boolean", "default": false },
         "evidence": {

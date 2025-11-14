@@ -35,7 +35,16 @@
       "required": ["ufpLow", "ufpHigh", "afpLow", "afpHigh"]
     }
   },
-  "required": ["schemaVersion", "generatedAt", "policy", "items", "gsc", "ufp", "vaf", "afp"],
+  "required": [
+    "schemaVersion",
+    "generatedAt",
+    "policy",
+    "items",
+    "gsc",
+    "ufp",
+    "vaf",
+    "afp"
+  ],
   "$defs": {
     "Evidence": {
       "type": "object",
@@ -68,9 +77,21 @@
         "rets": { "type": "integer", "minimum": 0 },
         "complexity": { "$ref": "#/$defs/Complexity" },
         "rationale": { "type": "string" },
-        "tags": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
-        "relatedRoutes": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
-        "relatedEndpoints": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        },
+        "relatedRoutes": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        },
+        "relatedEndpoints": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        },
         "evidence": {
           "type": "array",
           "items": { "$ref": "#/$defs/Evidence" },
@@ -80,11 +101,17 @@
       "required": ["type", "name", "complexity", "evidence"],
       "allOf": [
         {
-          "if": { "properties": { "type": { "const": "ILF" } }, "required": ["type"] },
+          "if": {
+            "properties": { "type": { "const": "ILF" } },
+            "required": ["type"]
+          },
           "then": { "required": ["rets", "dets"] }
         },
         {
-          "if": { "properties": { "type": { "const": "EIF" } }, "required": ["type"] },
+          "if": {
+            "properties": { "type": { "const": "EIF" } },
+            "required": ["type"]
+          },
           "then": { "required": ["rets", "dets"] }
         },
         {

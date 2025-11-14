@@ -42,16 +42,13 @@ async function runPhase(
   )}\n</CONTEXT>`;
 
   if (opts.debug) {
-    // eslint-disable-next-line no-console
     console.log("[redox][debug] LLM phase", {
       promptFile,
       outFile,
       systemRole,
       dryRun: opts.dryRun,
     });
-    // eslint-disable-next-line no-console
     console.log("[redox][debug] LLM system prompt", systemRole);
-    // eslint-disable-next-line no-console
     console.log("[redox][debug] LLM user prompt", user);
   }
 
@@ -71,7 +68,9 @@ async function runPhase(
   });
   const anyR: any = res as any;
   const text =
-    anyR.output_text ?? anyR.output?.[0]?.content?.[0]?.text ?? JSON.stringify(anyR, null, 2);
+    anyR.output_text ??
+    anyR.output?.[0]?.content?.[0]?.text ??
+    JSON.stringify(anyR, null, 2);
 
   await fs.ensureDir(path.dirname(outFile));
   await fs.writeFile(outFile, text, "utf8");
@@ -82,8 +81,10 @@ async function runPhase(
     data: { bytes: text.length },
   });
   if (opts.debug) {
-    // eslint-disable-next-line no-console
-    console.log("[redox][debug] LLM output written", { outFile, length: text.length });
+    console.log("[redox][debug] LLM output written", {
+      outFile,
+      length: text.length,
+    });
   }
 }
 
@@ -121,14 +122,12 @@ ${JSON.stringify(
 </CONTEXT>`;
 
   if (opts.debug) {
-    // eslint-disable-next-line no-console
     console.log("[redox][debug] LLM JSON phase", {
       promptFile,
       outFile,
       systemRole,
       dryRun: opts.dryRun,
     });
-    // eslint-disable-next-line no-console
     console.log("[redox][debug] LLM JSON user prompt", user);
   }
 
@@ -148,7 +147,9 @@ ${JSON.stringify(
   });
   const anyR: any = res as any;
   let text =
-    anyR.output_text ?? anyR.output?.[0]?.content?.[0]?.text ?? JSON.stringify(anyR, null, 2);
+    anyR.output_text ??
+    anyR.output?.[0]?.content?.[0]?.text ??
+    JSON.stringify(anyR, null, 2);
 
   // Strip common Markdown fences if the model ignored instructions.
   const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
@@ -160,7 +161,9 @@ ${JSON.stringify(
   try {
     json = JSON.parse(text);
   } catch (err) {
-    throw new Error(`Failed to parse JSON for ${outFile}: ${(err as Error).message}`);
+    throw new Error(
+      `Failed to parse JSON for ${outFile}: ${(err as Error).message}`,
+    );
   }
 
   await fs.ensureDir(path.dirname(outFile));
@@ -171,7 +174,6 @@ ${JSON.stringify(
     file: outFile,
   });
   if (opts.debug) {
-    // eslint-disable-next-line no-console
     console.log("[redox][debug] LLM JSON output written", {
       outFile,
       bytes: text.length,

@@ -13,4 +13,3 @@ export async function loadPrompt(relPath: string) {
   const pkgPrompt = path.join(pkgDir, "prompts", "core", baseName);
   return fs.readFile(pkgPrompt, "utf8");
 }
-

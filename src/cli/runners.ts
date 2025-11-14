@@ -3,13 +3,18 @@ import { detectAndLoadContext } from "../core/context.js";
 import { checkEnvironment } from "../core/env.js";
 import { orchestrate } from "../core/orchestrator.js";
 import { runMaestro } from "../core/maestro.js";
+import { translateDocs } from "../core/translation.js";
 
 type Opts = Record<string, any>;
 
 async function withEngine<T>(
   label: string,
   opts: Opts,
-  stage: (ctx: { adapterId: string; seedsDir: string | null; engine: any }) => Promise<T>,
+  stage: (ctx: {
+    adapterId: string;
+    seedsDir: string | null;
+    engine: any;
+  }) => Promise<T>,
 ) {
   const useSpinner = !opts.quiet;
   const spinner = useSpinner ? ora(label).start() : null;
@@ -92,7 +97,9 @@ export async function runReview(opts: Opts) {
 }
 
 export async function runMaestroCli(opts: Opts) {
-  return withEngine("redox maestro", opts, ({ engine }) => runMaestro(engine, opts));
+  return withEngine("redox maestro", opts, ({ engine }) =>
+    runMaestro(engine, opts),
+  );
 }
 
 export async function runDoctor(_opts: Opts) {
@@ -104,4 +111,24 @@ export async function runDoctor(_opts: Opts) {
     spinner.fail(String(e));
     throw e;
   }
+}
+
+export async function runTranslate(opts: Opts) {
+  return withEngine("redox translate", opts, async ({ engine }) => {
+    const lang = opts.lang;
+    if (!lang || typeof lang !== "string") {
+      throw new Error("Missing required option --lang <locale> (e.g., pt-BR, es-ES).");
+    }
+
+    await translateDocs({
+      engine,
+      lang,
+      srcDir: opts.src ?? "docs",
+      outDir: opts.outDir ?? undefined,
+      include: opts.include ?? "*.md",
+      exclude: opts.exclude,
+      dryRun: opts.dryRun ?? false,
+      debug: opts.debug ?? false,
+    });
+  });
 }

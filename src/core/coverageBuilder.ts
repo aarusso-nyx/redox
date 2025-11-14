@@ -4,7 +4,10 @@ import type { EngineContext } from "./context.js";
 
 type Triad = { routeId: string; endpointId: string; useCaseId: string };
 
-function collectRefsFromUseCase(uc: any): { routeIds: Set<string>; endpointIds: Set<string> } {
+function collectRefsFromUseCase(uc: any): {
+  routeIds: Set<string>;
+  endpointIds: Set<string>;
+} {
   const routeIds = new Set<string>();
   const endpointIds = new Set<string>();
 
@@ -54,7 +57,10 @@ export async function buildCoverageMatrix(engine: EngineContext) {
     const apiMap = await fs.readJson(apiMapPath);
     const endpoints = Array.isArray(apiMap.endpoints) ? apiMap.endpoints : [];
     for (const ep of endpoints) {
-      const id = typeof ep.id === "string" && ep.id ? ep.id : `${ep.method ?? ""} ${ep.path ?? ""}`.trim();
+      const id =
+        typeof ep.id === "string" && ep.id
+          ? ep.id
+          : `${ep.method ?? ""} ${ep.path ?? ""}`.trim();
       if (id) endpointIds.add(id);
     }
   }
@@ -69,7 +75,8 @@ export async function buildCoverageMatrix(engine: EngineContext) {
       const routesDoc = await fs.readJson(routesPath);
       const routes = Array.isArray(routesDoc.routes) ? routesDoc.routes : [];
       for (const r of routes) {
-        const id = typeof r.id === "string" && r.id ? r.id : String(r.path ?? "");
+        const id =
+          typeof r.id === "string" && r.id ? r.id : String(r.path ?? "");
         if (id) routeIds.add(id);
       }
     }
@@ -87,9 +94,13 @@ export async function buildCoverageMatrix(engine: EngineContext) {
     const cases = Array.isArray(ucDoc.cases) ? ucDoc.cases : [];
     for (const uc of cases) {
       if (!uc || typeof uc.id !== "string" || !uc.id) continue;
-      useCasesSummary.push({ id: uc.id, title: typeof uc.title === "string" ? uc.title : undefined });
+      useCasesSummary.push({
+        id: uc.id,
+        title: typeof uc.title === "string" ? uc.title : undefined,
+      });
 
-      const { routeIds: ucRoutes, endpointIds: ucEndpoints } = collectRefsFromUseCase(uc);
+      const { routeIds: ucRoutes, endpointIds: ucEndpoints } =
+        collectRefsFromUseCase(uc);
       if (ucRoutes.size && ucEndpoints.size) {
         for (const routeId of ucRoutes) {
           for (const endpointId of ucEndpoints) {
@@ -132,4 +143,3 @@ export async function buildCoverageMatrix(engine: EngineContext) {
 
   await fs.writeJson(coveragePath, coverage, { spaces: 2 });
 }
-

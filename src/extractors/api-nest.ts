@@ -51,7 +51,10 @@ export function nestControllers(root = "."): NestRoute[] {
 
           let path = "";
           const dArgs = dec.getArguments();
-          if (dArgs.length > 0 && dArgs[0].getKind() === SyntaxKind.StringLiteral) {
+          if (
+            dArgs.length > 0 &&
+            dArgs[0].getKind() === SyntaxKind.StringLiteral
+          ) {
             const txt = dArgs[0].getText();
             path = txt.slice(1, -1);
           }

@@ -5,7 +5,12 @@ export type DbModel = {
   tables: {
     schema: string;
     name: string;
-    columns: { name: string; type: string; nullable: boolean; default?: string }[];
+    columns: {
+      name: string;
+      type: string;
+      nullable: boolean;
+      default?: string;
+    }[];
   }[];
   fks: {
     from: { schema: string; table: string; columns: string[] };
@@ -99,13 +104,27 @@ export async function introspect(client: any): Promise<DbModel> {
     ORDER BY 1,2,3;
   `);
 
-  const tableMap = new Map<string, { schema: string; name: string; columns: any[] }>();
-  for (const t of tables.rows) tableMap.set(`${t.schema}.${t.name}`, { schema: t.schema, name: t.name, columns: [] });
+  const tableMap = new Map<
+    string,
+    { schema: string; name: string; columns: any[] }
+  >();
+  for (const t of tables.rows)
+    tableMap.set(`${t.schema}.${t.name}`, {
+      schema: t.schema,
+      name: t.name,
+      columns: [],
+    });
 
   for (const c of cols.rows) {
     const key = `${c.schema}.${c.table}`;
     const t = tableMap.get(key);
-    if (t) t.columns.push({ name: c.column, type: c.type, nullable: c.nullable, default: c.default ?? undefined });
+    if (t)
+      t.columns.push({
+        name: c.column,
+        type: c.type,
+        nullable: c.nullable,
+        default: c.default ?? undefined,
+      });
   }
 
   const fkList = fks.rows.map((r: any) => ({
@@ -140,7 +159,9 @@ export async function buildDDLFromMigrations(root = ".", outDir = ".") {
   // If Postgres is available, dump schema
   try {
     const dbName = process.env.PGDATABASE ?? "";
-    const { stdout } = await execa("pg_dump", ["--schema-only", dbName], { cwd: root });
+    const { stdout } = await execa("pg_dump", ["--schema-only", dbName], {
+      cwd: root,
+    });
     const ddlPath = outDir ? `${outDir}/database.sql` : "database.sql";
     await fs.writeFile(ddlPath, stdout, "utf8");
   } catch {

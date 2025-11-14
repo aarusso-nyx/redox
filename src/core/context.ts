@@ -36,7 +36,9 @@ export async function detectAndLoadContext(opts: any): Promise<{
 }> {
   const cwd = process.cwd();
   const root = path.resolve(cwd, opts.dir ?? ".");
-  const docsDir = opts.out ? path.resolve(cwd, opts.out) : path.join(root, "redox");
+  const docsDir = opts.out
+    ? path.resolve(cwd, opts.out)
+    : path.join(root, "redox");
   const diagramsDir = path.join(docsDir, "diagrams");
   const scriptsDir = path.join(docsDir, "scripts");
   const evidenceDir = path.join(docsDir, ".redox");

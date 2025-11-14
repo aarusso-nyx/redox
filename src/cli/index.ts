@@ -13,21 +13,35 @@ import {
   runDoctor,
   runReview,
   runMaestroCli,
+  runTranslate,
 } from "./runners.js";
 import { printUsageReport } from "./usage.js";
 
 const program = new Command()
   .name("redox")
-  .description("Reverse documentation engine (redox) - TS CLI with LLM-driven synthesis")
-  .option("--stack <adapterId>", "force a stack adapter (e.g., laravel-postgres-angular)")
+  .description(
+    "Reverse documentation engine (redox) - TS CLI with LLM-driven synthesis",
+  )
+  .option(
+    "--stack <adapterId>",
+    "force a stack adapter (e.g., laravel-postgres-angular)",
+  )
   .option("--backend <name>", "override backend (laravel|nestjs|spring)")
   .option("--frontend <name>", "override frontend (angular|react|angularjs)")
   .option("--db <name>", "override db (postgres|oracle|mysql)")
   .option("--cloud <name>", "override cloud (aws|gcp|azure|none)")
   .option("--no-detect", "disable auto-detection entirely")
   .option("--seeds <dir>", "project seeds directory")
-  .option("--seed-merge <order>", "seed merge order (project,stack,engine)", "project,stack,engine")
-  .option("--gates <csv>", "gates to run", "schema,coverage,evidence,build,traceability")
+  .option(
+    "--seed-merge <order>",
+    "seed merge order (project,stack,engine)",
+    "project,stack,engine",
+  )
+  .option(
+    "--gates <csv>",
+    "gates to run",
+    "schema,coverage,evidence,build,traceability",
+  )
   .option("--out <dir>", "output directory (default: <dir>/redox)")
   .option("--facts-only", "stop after extraction (no prose)")
   .option("--concurrency <n>", "parallel extractors", "4")
@@ -71,7 +85,9 @@ program
   .description("Synthesize prose with gates")
   .argument("[dir]", "target project directory", ".")
   .option("--profile <dev|user|audit|all>", "doc profile", "dev")
-  .action(async (dir, cmd) => runSynthesize({ ...program.opts(), ...cmd.opts(), dir }));
+  .action(async (dir, cmd) =>
+    runSynthesize({ ...program.opts(), ...cmd.opts(), dir }),
+  );
 program
   .command("render")
   .description("Render diagrams")
@@ -100,6 +116,27 @@ program
   .command("usage")
   .description("Print token usage report from .redox/usage.jsonl")
   .action(async () => printUsageReport());
+
+program
+  .command("translate")
+  .description("Translate Markdown docs into a target language")
+  .argument("[dir]", "target project directory", ".")
+  .option("--lang <locale>", "target language (e.g., pt-BR, es-ES, fr-FR)")
+  .option("--src <dir>", "source docs directory (relative to project root)", "docs")
+  .option("--out-dir <dir>", "output directory for translated docs (default: <src>/<lang>)")
+  .option("--include <glob>", "glob of files to include (relative to src)", "*.md")
+  .option("--exclude <glob>", "glob of files to exclude (relative to src)")
+  .action(async (dir, cmd) => {
+    const baseOpts = { ...program.opts(), dir };
+    const tOpts = { ...cmd.opts() };
+    // Normalize option keys: Commander uses camelCase only for long options without dashes.
+    const outDir = (tOpts as any).outDir ?? (tOpts as any)["out-dir"];
+    await runTranslate({
+      ...baseOpts,
+      ...tOpts,
+      outDir,
+    });
+  });
 
 program.parseAsync().catch((e) => {
   console.error(e);

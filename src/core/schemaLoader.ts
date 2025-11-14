@@ -9,4 +9,3 @@ export async function loadSchemaFile(fileName: string): Promise<any> {
   const schemaPath = path.join(schemasDir, fileName);
   return fs.readJson(schemaPath);
 }
-

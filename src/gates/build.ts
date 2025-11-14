@@ -10,7 +10,9 @@ export async function buildGate(root: string, docsDir: string) {
     try {
       await execa("psql", ["-q", "-f", ddlPath], { cwd: root });
     } catch (err: any) {
-      errors.push(`DDL validation failed (psql): ${err?.shortMessage ?? err?.message ?? String(err)}`);
+      errors.push(
+        `DDL validation failed (psql): ${err?.shortMessage ?? err?.message ?? String(err)}`,
+      );
     }
   }
 
@@ -20,7 +22,9 @@ export async function buildGate(root: string, docsDir: string) {
     try {
       await execa("mmdc", ["-i", erdPath, "-o", tmpOut], { cwd: root });
     } catch (err: any) {
-      errors.push(`ERD render failed (mmdc): ${err?.shortMessage ?? err?.message ?? String(err)}`);
+      errors.push(
+        `ERD render failed (mmdc): ${err?.shortMessage ?? err?.message ?? String(err)}`,
+      );
     } finally {
       try {
         if (fs.existsSync(tmpOut)) fs.unlinkSync(tmpOut);

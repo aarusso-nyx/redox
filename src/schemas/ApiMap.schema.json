@@ -56,7 +56,10 @@
       "additionalProperties": false,
       "properties": {
         "name": { "type": "string", "minLength": 1 },
-        "in": { "type": "string", "enum": ["path", "query", "header", "cookie"] },
+        "in": {
+          "type": "string",
+          "enum": ["path", "query", "header", "cookie"]
+        },
         "required": { "type": "boolean" },
         "type": { "type": "string" },
         "example": {}
@@ -115,9 +118,21 @@
       "additionalProperties": false,
       "properties": {
         "required": { "type": "boolean" },
-        "schemes": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
-        "roles": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
-        "guards": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+        "schemes": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        },
+        "roles": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        },
+        "guards": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        }
       }
     },
     "Validation": {
@@ -138,14 +153,28 @@
         "method": { "$ref": "#/$defs/HttpMethod" },
         "path": { "type": "string", "pattern": "^/" },
         "summary": { "type": "string" },
-        "tags": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        },
         "auth": { "$ref": "#/$defs/Auth" },
-        "params": { "type": "array", "items": { "$ref": "#/$defs/Param" }, "uniqueItems": true },
+        "params": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Param" },
+          "uniqueItems": true
+        },
         "request": { "$ref": "#/$defs/Request" },
-        "responses": { "type": "array", "items": { "$ref": "#/$defs/Response" } },
+        "responses": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Response" }
+        },
         "controller": { "$ref": "#/$defs/ControllerRef" },
         "validation": { "$ref": "#/$defs/Validation" },
-        "source": { "type": "string", "enum": ["openapi", "routes", "inferred"] },
+        "source": {
+          "type": "string",
+          "enum": ["openapi", "routes", "inferred"]
+        },
         "deprecated": { "type": "boolean", "default": false },
         "evidence": {
           "type": "array",

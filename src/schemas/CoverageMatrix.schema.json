@@ -7,14 +7,25 @@
   "properties": {
     "schemaVersion": { "type": "string", "const": "1.0" },
     "generatedAt": { "type": "string", "format": "date-time" },
-    "routes": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
-    "endpoints": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+    "routes": {
+      "type": "array",
+      "items": { "type": "string" },
+      "uniqueItems": true
+    },
+    "endpoints": {
+      "type": "array",
+      "items": { "type": "string" },
+      "uniqueItems": true
+    },
     "useCases": {
       "type": "array",
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "properties": { "id": { "type": "string" }, "title": { "type": "string" } },
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string" }
+        },
         "required": ["id"]
       },
       "uniqueItems": true
@@ -28,8 +39,18 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "routes": { "type": "array", "items": { "type": "string" }, "uniqueItems": true, "default": [] },
-        "endpoints": { "type": "array", "items": { "type": "string" }, "uniqueItems": true, "default": [] }
+        "routes": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true,
+          "default": []
+        },
+        "endpoints": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true,
+          "default": []
+        }
       },
       "required": ["routes", "endpoints"]
     },
@@ -44,7 +65,15 @@
       }
     }
   },
-  "required": ["schemaVersion", "generatedAt", "routes", "endpoints", "useCases", "links", "unmapped"],
+  "required": [
+    "schemaVersion",
+    "generatedAt",
+    "routes",
+    "endpoints",
+    "useCases",
+    "links",
+    "unmapped"
+  ],
   "$defs": {
     "Evidence": {
       "type": "object",

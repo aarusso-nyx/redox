@@ -63,22 +63,53 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "unknownEndpointPolicy": { "type": "string", "enum": ["deny", "allow"] },
+        "unknownEndpointPolicy": {
+          "type": "string",
+          "enum": ["deny", "allow"]
+        },
         "unknownRoutePolicy": { "type": "string", "enum": ["deny", "allow"] }
       },
-      "default": { "unknownEndpointPolicy": "deny", "unknownRoutePolicy": "deny" }
+      "default": {
+        "unknownEndpointPolicy": "deny",
+        "unknownRoutePolicy": "deny"
+      }
     },
     "unmapped": {
       "description": "Gating helper: anything without a role or permission mapping.",
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "rolesWithoutPermissions": { "type": "array", "items": { "type": "string" }, "uniqueItems": true, "default": [] },
-        "permissionsWithoutBindings": { "type": "array", "items": { "type": "string" }, "uniqueItems": true, "default": [] },
-        "endpointsWithoutRole": { "type": "array", "items": { "type": "string" }, "uniqueItems": true, "default": [] },
-        "routesWithoutRole": { "type": "array", "items": { "type": "string" }, "uniqueItems": true, "default": [] }
+        "rolesWithoutPermissions": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true,
+          "default": []
+        },
+        "permissionsWithoutBindings": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true,
+          "default": []
+        },
+        "endpointsWithoutRole": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true,
+          "default": []
+        },
+        "routesWithoutRole": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true,
+          "default": []
+        }
       },
-      "required": ["rolesWithoutPermissions", "permissionsWithoutBindings", "endpointsWithoutRole", "routesWithoutRole"]
+      "required": [
+        "rolesWithoutPermissions",
+        "permissionsWithoutBindings",
+        "endpointsWithoutRole",
+        "routesWithoutRole"
+      ]
     },
     "stats": {
       "type": "object",
@@ -92,7 +123,14 @@
       }
     }
   },
-  "required": ["schemaVersion", "generatedAt", "roles", "permissions", "bindings", "unmapped"],
+  "required": [
+    "schemaVersion",
+    "generatedAt",
+    "roles",
+    "permissions",
+    "bindings",
+    "unmapped"
+  ],
   "$defs": {
     "Evidence": {
       "type": "object",
@@ -113,7 +151,11 @@
         "id": { "type": "string", "minLength": 1 },
         "name": { "type": "string" },
         "description": { "type": "string" },
-        "inherits": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "inherits": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        },
         "evidence": { "type": "array", "items": { "$ref": "#/$defs/Evidence" } }
       },
       "required": ["id"]
@@ -145,7 +187,11 @@
       "properties": {
         "roleId": { "type": "string" },
         "permissionId": { "type": "string" },
-        "effect": { "type": "string", "enum": ["allow", "deny"], "default": "allow" },
+        "effect": {
+          "type": "string",
+          "enum": ["allow", "deny"],
+          "default": "allow"
+        },
         "evidence": { "type": "array", "items": { "$ref": "#/$defs/Evidence" } }
       },
       "required": ["roleId", "permissionId"]
@@ -158,7 +204,10 @@
         "endpointId": { "type": "string" },
         "methods": {
           "type": "array",
-          "items": { "type": "string", "enum": ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"] },
+          "items": {
+            "type": "string",
+            "enum": ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"]
+          },
           "uniqueItems": true
         },
         "evidence": { "type": "array", "items": { "$ref": "#/$defs/Evidence" } }
@@ -180,10 +229,16 @@
       "additionalProperties": false,
       "properties": {
         "permissionId": { "type": "string" },
-        "entity": { "type": "string", "description": "Domain entity or table name" },
+        "entity": {
+          "type": "string",
+          "description": "Domain entity or table name"
+        },
         "operations": {
           "type": "array",
-          "items": { "type": "string", "enum": ["create", "read", "update", "delete", "export", "import"] },
+          "items": {
+            "type": "string",
+            "enum": ["create", "read", "update", "delete", "export", "import"]
+          },
           "uniqueItems": true
         },
         "evidence": { "type": "array", "items": { "$ref": "#/$defs/Evidence" } }

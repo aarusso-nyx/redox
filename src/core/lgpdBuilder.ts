@@ -3,13 +3,21 @@ import path from "node:path";
 import type { EngineContext } from "./context.js";
 import type { DbModel } from "../extractors/db.js";
 
-export async function buildLgpdMap(engine: EngineContext, model: DbModel | null) {
+export async function buildLgpdMap(
+  engine: EngineContext,
+  model: DbModel | null,
+) {
   const dir = engine.evidenceDir;
   await fs.ensureDir(dir);
 
   if (!model) return;
 
-  const entries: { field: string; table: string; legalBasis: string; retention: string }[] = [];
+  const entries: {
+    field: string;
+    table: string;
+    legalBasis: string;
+    retention: string;
+  }[] = [];
 
   for (const table of model.tables) {
     for (const col of table.columns) {
@@ -27,4 +35,3 @@ export async function buildLgpdMap(engine: EngineContext, model: DbModel | null)
   const outPath = path.join(dir, "lgpd-map.json");
   await fs.writeJson(outPath, entries, { spaces: 2 });
 }
-

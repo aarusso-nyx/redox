@@ -1,5 +1,4 @@
 import fs from "fs-extra";
-import path from "node:path";
 import type { EngineContext } from "./context.js";
 
 export async function ensurePlaceholderArtifacts(engine: EngineContext) {

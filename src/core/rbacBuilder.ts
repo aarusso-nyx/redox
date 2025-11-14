@@ -3,13 +3,18 @@ import path from "node:path";
 import type { EngineContext } from "./context.js";
 import type { DbModel } from "../extractors/db.js";
 
-export async function buildRbacArtifact(engine: EngineContext, model: DbModel | null) {
+export async function buildRbacArtifact(
+  engine: EngineContext,
+  model: DbModel | null,
+) {
   const dir = engine.evidenceDir;
   await fs.ensureDir(dir);
 
   if (!model) return;
 
-  const rbacTables = model.tables.filter((t) => /role/i.test(t.name) || /permission/i.test(t.name));
+  const rbacTables = model.tables.filter(
+    (t) => /role/i.test(t.name) || /permission/i.test(t.name),
+  );
   if (!rbacTables.length) return;
 
   const now = new Date().toISOString();
@@ -50,4 +55,3 @@ export async function buildRbacArtifact(engine: EngineContext, model: DbModel | 
   const outPath = path.join(dir, "rbac.json");
   await fs.writeJson(outPath, doc, { spaces: 2 });
 }
-

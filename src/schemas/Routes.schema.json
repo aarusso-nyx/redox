@@ -7,7 +7,10 @@
   "properties": {
     "schemaVersion": { "type": "string", "const": "1.0" },
     "generatedAt": { "type": "string", "format": "date-time" },
-    "framework": { "type": "string", "enum": ["angular", "react", "angularjs", "nextjs", "remix"] },
+    "framework": {
+      "type": "string",
+      "enum": ["angular", "react", "angularjs", "nextjs", "remix"]
+    },
     "routes": {
       "type": "array",
       "items": { "$ref": "#/$defs/Route" }
@@ -41,7 +44,10 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "method": { "type": "string", "enum": ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"] },
+        "method": {
+          "type": "string",
+          "enum": ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"]
+        },
         "path": { "type": "string", "pattern": "^/" },
         "endpointId": { "type": "string" }
       },
@@ -54,15 +60,42 @@
         "id": { "type": "string", "minLength": 1 },
         "path": { "type": "string", "minLength": 1 },
         "parentId": { "type": "string" },
-        "children": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "children": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        },
         "component": { "$ref": "#/$defs/ComponentRef" },
         "lazy": { "type": "boolean" },
-        "guards": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
-        "resolvers": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
-        "params": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
-        "dataKeys": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
-        "roles": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
-        "apiCalls": { "type": "array", "items": { "$ref": "#/$defs/ApiCallRef" } },
+        "guards": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        },
+        "resolvers": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        },
+        "params": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        },
+        "dataKeys": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        },
+        "roles": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        },
+        "apiCalls": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ApiCallRef" }
+        },
         "evidence": {
           "type": "array",
           "items": { "$ref": "#/$defs/Evidence" },

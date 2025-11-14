@@ -30,23 +30,39 @@ async function gatherState(engine: EngineContext) {
     docsDir,
     evidenceDir,
     docs: {
-      overview: artifactExists(engine, path.relative(engine.root, path.join(docsDir, "Overview.md"))),
+      overview: artifactExists(
+        engine,
+        path.relative(engine.root, path.join(docsDir, "Overview.md")),
+      ),
       architecture: artifactExists(
         engine,
         path.relative(engine.root, path.join(docsDir, "Architecture Guide.md")),
       ),
-      db: artifactExists(engine, path.relative(engine.root, path.join(docsDir, "Database Reference.md"))),
-      userGuide: artifactExists(engine, path.relative(engine.root, path.join(docsDir, "User Guide.md"))),
+      db: artifactExists(
+        engine,
+        path.relative(engine.root, path.join(docsDir, "Database Reference.md")),
+      ),
+      userGuide: artifactExists(
+        engine,
+        path.relative(engine.root, path.join(docsDir, "User Guide.md")),
+      ),
       fpReport: artifactExists(
         engine,
-        path.relative(engine.root, path.join(docsDir, "Function Point Report.md")),
+        path.relative(
+          engine.root,
+          path.join(docsDir, "Function Point Report.md"),
+        ),
       ),
     },
     artifacts: {
       apiMap: fs.existsSync(path.join(evidenceDir, "api-map.json")),
-      routes: fs.readdirSync(evidenceDir).some((n) => n.startsWith("routes-") && n.endsWith(".json")),
+      routes: fs
+        .readdirSync(evidenceDir)
+        .some((n: string) => n.startsWith("routes-") && n.endsWith(".json")),
       useCases: fs.existsSync(path.join(evidenceDir, "use-cases.json")),
-      coverageMatrix: fs.existsSync(path.join(evidenceDir, "coverage-matrix.json")),
+      coverageMatrix: fs.existsSync(
+        path.join(evidenceDir, "coverage-matrix.json"),
+      ),
       fpAppendix: fs.existsSync(path.join(evidenceDir, "fp-appendix.json")),
       rbac: fs.existsSync(path.join(evidenceDir, "rbac.json")),
       lgpd: fs.existsSync(path.join(evidenceDir, "lgpd-map.json")),
@@ -74,7 +90,10 @@ ${JSON.stringify(state, null, 2)}
 `;
 
   const res = await askLLM(userPrompt, {
-    model: process.env.REDOX_MODEL_MAESTRO ?? process.env.REDOX_MODEL_WRITER ?? "gpt-4.1",
+    model:
+      process.env.REDOX_MODEL_MAESTRO ??
+      process.env.REDOX_MODEL_WRITER ??
+      "gpt-4.1",
     agent: "maestro",
     stage: "orchestrate",
     meta: { root: engine.root, docsDir: engine.docsDir },
@@ -82,13 +101,17 @@ ${JSON.stringify(state, null, 2)}
 
   const anyR: any = res as any;
   const text =
-    anyR.output_text ?? anyR.output?.[0]?.content?.[0]?.text ?? JSON.stringify(anyR, null, 2);
+    anyR.output_text ??
+    anyR.output?.[0]?.content?.[0]?.text ??
+    JSON.stringify(anyR, null, 2);
 
   let plan: MaestroPlan;
   try {
     plan = JSON.parse(text) as MaestroPlan;
   } catch (err) {
-    throw new Error(`Maestro plan JSON parse failed: ${(err as Error).message}`);
+    throw new Error(
+      `Maestro plan JSON parse failed: ${(err as Error).message}`,
+    );
   }
 
   const actions = Array.isArray(plan.nextActions) ? plan.nextActions : [];
@@ -100,7 +123,6 @@ ${JSON.stringify(state, null, 2)}
     const profile = action.profile ?? opts.profile;
     const gates = action.gates ?? opts.gates;
 
-    // eslint-disable-next-line no-console
     console.log("[redox][maestro] run_stage", { stage, profile, gates });
 
     await orchestrate(stage, {
@@ -111,4 +133,3 @@ ${JSON.stringify(state, null, 2)}
     });
   }
 }
-

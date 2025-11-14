@@ -11,9 +11,13 @@ export type LaravelRoute = {
   file?: string;
 };
 
-export async function laravelRoutesViaArtisan(root = "."): Promise<LaravelRoute[] | null> {
+export async function laravelRoutesViaArtisan(
+  root = ".",
+): Promise<LaravelRoute[] | null> {
   try {
-    const { stdout } = await execa("php", ["artisan", "route:list", "--json"], { cwd: root });
+    const { stdout } = await execa("php", ["artisan", "route:list", "--json"], {
+      cwd: root,
+    });
     const parsed = JSON.parse(stdout) as any[];
     return parsed.map((r) => ({
       method: r.method,
@@ -27,7 +31,9 @@ export async function laravelRoutesViaArtisan(root = "."): Promise<LaravelRoute[
   }
 }
 
-export async function laravelRoutesFallback(root = "."): Promise<LaravelRoute[]> {
+export async function laravelRoutesFallback(
+  root = ".",
+): Promise<LaravelRoute[]> {
   const files = await fg(["routes/*.php"], { cwd: root, dot: false });
   const routes: LaravelRoute[] = [];
   for (const rel of files) {

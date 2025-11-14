@@ -16,4 +16,3 @@
 - Coverage & traceability:
   - Every Angular route and Express endpoint should map to ≥1 Use Case; export unmapped routes/endpoints in the Coverage Matrix for the coverage gate.
   - Call out backend-only endpoints (no matching frontend route) and frontend-only routes (no matching endpoint) with explicit rationale where they are intentional (e.g., internal APIs, admin-only tools).
-

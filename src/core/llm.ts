@@ -35,15 +35,21 @@ export type LLMOpts = {
 
 export async function askLLM(prompt: string, opts: LLMOpts) {
   const { model, temperature = 0.1, jsonSchema, tools } = opts;
-  const res = await getClient().responses.create({
+  const body: any = {
     model,
     input: [{ role: "user", content: prompt }],
     temperature,
-    response_format: jsonSchema
-      ? { type: "json_schema", json_schema: { name: "redox", schema: jsonSchema, strict: true } }
-      : undefined,
     tools,
-  });
+  };
+
+  if (jsonSchema) {
+    body.response_format = {
+      type: "json_schema",
+      json_schema: { name: "redox", schema: jsonSchema, strict: true },
+    };
+  }
+
+  const res = await getClient().responses.create(body);
 
   const anyR: any = res as any;
   const usageRaw = (anyR.usage ?? anyR.output?.[0]?.usage ?? {}) as any;

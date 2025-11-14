@@ -89,6 +89,11 @@
       "required": ["app", "routes", "migrations", "resources", "tests"]
     }
   },
-  "required": ["schemaVersion", "generatedAt", "languages", "frameworks", "packageManagers"]
+  "required": [
+    "schemaVersion",
+    "generatedAt",
+    "languages",
+    "frameworks",
+    "packageManagers"
+  ]
 }
-

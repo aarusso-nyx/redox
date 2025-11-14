@@ -10,7 +10,10 @@ export type ReactRoute = {
 };
 
 export async function extractReactRoutes(root = ".") {
-  const files = await fg(["resources/js/**/*.{tsx,jsx,ts,js}"], { cwd: root, dot: false });
+  const files = await fg(["resources/js/**/*.{tsx,jsx,ts,js}"], {
+    cwd: root,
+    dot: false,
+  });
   const routes: ReactRoute[] = [];
 
   for (const rel of files) {
@@ -18,7 +21,10 @@ export async function extractReactRoutes(root = ".") {
     const src = await fs.readFile(f, "utf8");
     let ast: any;
     try {
-      ast = parser.parse(src, { sourceType: "module", plugins: ["jsx", "typescript"] });
+      ast = parser.parse(src, {
+        sourceType: "module",
+        plugins: ["jsx", "typescript"],
+      });
     } catch {
       continue;
     }
@@ -30,7 +36,10 @@ export async function extractReactRoutes(root = ".") {
           const attrs = Object.fromEntries(
             path.node.attributes
               .filter((a: any) => a.type === "JSXAttribute" && a.name?.name)
-              .map((a: any) => [a.name.name, a.value?.value ?? a.value?.expression?.value]),
+              .map((a: any) => [
+                a.name.name,
+                a.value?.value ?? a.value?.expression?.value,
+              ]),
           );
           if (attrs.path) {
             routes.push({
@@ -46,4 +55,3 @@ export async function extractReactRoutes(root = ".") {
 
   return { routes };
 }
-

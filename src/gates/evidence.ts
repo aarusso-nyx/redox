@@ -17,7 +17,9 @@ export async function evidenceFileGate(root: string, evidenceFile: string) {
       const parsed = JSON.parse(trimmed) as Evidence;
       evidences.push(parsed);
     } catch (err) {
-      throw new Error(`EvidenceGate: invalid JSON line in ${path.basename(evidenceFile)} — ${String(err)}`);
+      throw new Error(
+        `EvidenceGate: invalid JSON line in ${path.basename(evidenceFile)} — ${String(err)}`,
+      );
     }
   }
 
@@ -34,8 +36,14 @@ export async function evidenceFileGate(root: string, evidenceFile: string) {
 
     const content = await fs.promises.readFile(absPath, "utf8");
     const lines = content.split(/\r?\n/);
-    if (ev.startLine < 1 || ev.endLine < ev.startLine || ev.endLine > lines.length) {
-      errors.push(`Invalid line span for ${ev.path}: ${ev.startLine}-${ev.endLine}`);
+    if (
+      ev.startLine < 1 ||
+      ev.endLine < ev.startLine ||
+      ev.endLine > lines.length
+    ) {
+      errors.push(
+        `Invalid line span for ${ev.path}: ${ev.startLine}-${ev.endLine}`,
+      );
       continue;
     }
 
@@ -50,4 +58,3 @@ export async function evidenceFileGate(root: string, evidenceFile: string) {
     throw new Error(`EvidenceGate failed:\n${errors.join("\n")}`);
   }
 }
-

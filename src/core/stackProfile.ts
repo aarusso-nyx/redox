@@ -6,7 +6,10 @@ import { loadPrompt } from "./promptLoader.js";
 import { loadSchemaFile } from "./schemaLoader.js";
 import { emitEngineEvent } from "./events.js";
 
-export async function buildStackProfile(engine: EngineContext, opts: { dryRun: boolean; debug: boolean }) {
+export async function buildStackProfile(
+  engine: EngineContext,
+  opts: { dryRun: boolean; debug: boolean },
+) {
   const promptText = await loadPrompt("repo-scanner.md");
 
   const context = {
@@ -24,15 +27,16 @@ ${JSON.stringify(context, null, 2)}
 </CONTEXT>`;
 
   if (opts.debug) {
-    // eslint-disable-next-line no-console
     console.log("[redox][debug] stackProfile user prompt", userPrompt);
   }
 
   const outPath = path.join(engine.evidenceDir, "stack-profile.json");
 
   if (opts.dryRun) {
-    // eslint-disable-next-line no-console
-    console.log("[redox][debug] (dry-run) Would write stack profile to", outPath);
+    console.log(
+      "[redox][debug] (dry-run) Would write stack profile to",
+      outPath,
+    );
     return;
   }
 
@@ -47,7 +51,9 @@ ${JSON.stringify(context, null, 2)}
   });
   const anyR: any = res as any;
   let text =
-    anyR.output_text ?? anyR.output?.[0]?.content?.[0]?.text ?? JSON.stringify(anyR, null, 2);
+    anyR.output_text ??
+    anyR.output?.[0]?.content?.[0]?.text ??
+    JSON.stringify(anyR, null, 2);
 
   const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
   if (fence) {
@@ -58,7 +64,9 @@ ${JSON.stringify(context, null, 2)}
   try {
     json = JSON.parse(text);
   } catch (err) {
-    throw new Error(`Failed to parse stack-profile JSON: ${(err as Error).message}`);
+    throw new Error(
+      `Failed to parse stack-profile JSON: ${(err as Error).message}`,
+    );
   }
 
   if (!json.schemaVersion) {
@@ -72,7 +80,6 @@ ${JSON.stringify(context, null, 2)}
   await fs.writeJson(outPath, json, { spaces: 2 });
 
   if (opts.debug) {
-    // eslint-disable-next-line no-console
     console.log("[redox][debug] stack profile written", { path: outPath });
   }
 

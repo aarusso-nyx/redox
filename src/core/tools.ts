@@ -11,18 +11,22 @@ export const RevdocTools = [
           startLine: { type: "integer" },
           endLine: { type: "integer" },
           sha256: { type: "string" },
-          note: { type: "string" }
+          note: { type: "string" },
         },
-        required: ["path", "startLine", "endLine"]
-      }
-    }
+        required: ["path", "startLine", "endLine"],
+      },
+    },
   },
   {
     type: "function",
     function: {
       name: "pushIdea",
       description: "Record a stray suggestion for later tasks",
-      parameters: { type: "object", properties: { note: { type: "string" }, tag: { type: "string" } }, required: ["note"] }
-    }
-  }
+      parameters: {
+        type: "object",
+        properties: { note: { type: "string" }, tag: { type: "string" } },
+        required: ["note"],
+      },
+    },
+  },
 ];

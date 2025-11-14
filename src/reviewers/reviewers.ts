@@ -5,7 +5,12 @@ import { askLLM } from "../core/llm.js";
 
 export type ReviewResult = {
   summary: string;
-  findings: { id: string; severity: "info" | "low" | "medium" | "high"; area: string; text: string }[];
+  findings: {
+    id: string;
+    severity: "info" | "low" | "medium" | "high";
+    area: string;
+    text: string;
+  }[];
   rawMarkdown?: string;
 };
 
@@ -38,9 +43,10 @@ async function runReviewer(
   ].join("\n");
 
   if (debug) {
-    // eslint-disable-next-line no-console
-    console.log(`[redox][debug] ${config.name} system prompt`, config.systemPrompt);
-    // eslint-disable-next-line no-console
+    console.log(
+      `[redox][debug] ${config.name} system prompt`,
+      config.systemPrompt,
+    );
     console.log(`[redox][debug] ${config.name} user prompt`, userPrompt);
   }
 
@@ -52,16 +58,22 @@ async function runReviewer(
   }
 
   const res = await askLLM(userPrompt, {
-    model: process.env.REDOX_MODEL_REVIEW ?? process.env.REDOX_MODEL_WRITER ?? "gpt-4.1",
+    model:
+      process.env.REDOX_MODEL_REVIEW ??
+      process.env.REDOX_MODEL_WRITER ??
+      "gpt-4.1",
     agent: `${config.name}-review`,
     stage: "review",
     meta: { root: engine.root, ...config.meta },
   });
   const anyR: any = res as any;
   const text =
-    anyR.output_text ?? anyR.output?.[0]?.content?.[0]?.text ?? JSON.stringify(anyR, null, 2);
+    anyR.output_text ??
+    anyR.output?.[0]?.content?.[0]?.text ??
+    JSON.stringify(anyR, null, 2);
 
-  const summaryLine = text.split("\n").find((l: string) => l.trim().length > 0) ?? "";
+  const summaryLine =
+    text.split("\n").find((l: string) => l.trim().length > 0) ?? "";
 
   return {
     summary: summaryLine.slice(0, 512),
@@ -84,8 +96,12 @@ export async function architectReview(
 
   const architectureMd = await safeRead(archPath);
   const overviewMd = await safeRead(overviewPath);
-  const apiMap = (await fs.pathExists(apiMapPath)) ? await fs.readJson(apiMapPath) : null;
-  const coverage = (await fs.pathExists(coveragePath)) ? await fs.readJson(coveragePath) : null;
+  const apiMap = (await fs.pathExists(apiMapPath))
+    ? await fs.readJson(apiMapPath)
+    : null;
+  const coverage = (await fs.pathExists(coveragePath))
+    ? await fs.readJson(coveragePath)
+    : null;
 
   const context = {
     root: engine.root,
@@ -127,7 +143,9 @@ export async function qaReview(
 
   const testStrategyMd = await safeRead(testStrategyPath);
   const fpReportMd = await safeRead(fpReportPath);
-  const coverage = (await fs.pathExists(coveragePath)) ? await fs.readJson(coveragePath) : null;
+  const coverage = (await fs.pathExists(coveragePath))
+    ? await fs.readJson(coveragePath)
+    : null;
 
   const context = {
     root: engine.root,
@@ -202,9 +220,15 @@ export async function securityReview(
   const lgpdPath = path.join(evidenceDir, "lgpd-map.json");
 
   const architectureMd = await safeRead(archPath);
-  const apiMap = (await fs.pathExists(apiMapPath)) ? await fs.readJson(apiMapPath) : null;
-  const rbac = (await fs.pathExists(rbacPath)) ? await fs.readJson(rbacPath) : null;
-  const lgpd = (await fs.pathExists(lgpdPath)) ? await fs.readJson(lgpdPath) : null;
+  const apiMap = (await fs.pathExists(apiMapPath))
+    ? await fs.readJson(apiMapPath)
+    : null;
+  const rbac = (await fs.pathExists(rbacPath))
+    ? await fs.readJson(rbacPath)
+    : null;
+  const lgpd = (await fs.pathExists(lgpdPath))
+    ? await fs.readJson(lgpdPath)
+    : null;
 
   const context = {
     root: engine.root,

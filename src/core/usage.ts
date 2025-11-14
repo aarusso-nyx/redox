@@ -28,7 +28,9 @@ export function getRunId(): string {
   return currentRunId;
 }
 
-export async function recordUsage(entry: Omit<UsageEntry, "timestamp" | "runId">) {
+export async function recordUsage(
+  entry: Omit<UsageEntry, "timestamp" | "runId">,
+) {
   const baseDir = process.env.REDOX_USAGE_DIR || path.join("redox", ".redox");
   const dir = baseDir;
   const file = path.join(dir, "usage.jsonl");
@@ -63,15 +65,29 @@ export async function readUsageEntries(): Promise<UsageEntry[]> {
 export async function summarizeUsage() {
   const entries = await readUsageEntries();
   if (!entries.length) {
-    return { entries: 0, runs: 0, totalInput: 0, totalOutput: 0, totalTokens: 0, byModel: {}, byAgent: {} };
+    return {
+      entries: 0,
+      runs: 0,
+      totalInput: 0,
+      totalOutput: 0,
+      totalTokens: 0,
+      byModel: {},
+      byAgent: {},
+    };
   }
 
   const runIds = new Set<string>();
   let totalInput = 0;
   let totalOutput = 0;
   let totalTokens = 0;
-  const byModel: Record<string, { calls: number; input: number; output: number; total: number }> = {};
-  const byAgent: Record<string, { calls: number; input: number; output: number; total: number }> = {};
+  const byModel: Record<
+    string,
+    { calls: number; input: number; output: number; total: number }
+  > = {};
+  const byAgent: Record<
+    string,
+    { calls: number; input: number; output: number; total: number }
+  > = {};
 
   for (const e of entries) {
     runIds.add(e.runId);
@@ -83,14 +99,16 @@ export async function summarizeUsage() {
     totalTokens += totTok;
 
     const mKey = e.model || "unknown";
-    if (!byModel[mKey]) byModel[mKey] = { calls: 0, input: 0, output: 0, total: 0 };
+    if (!byModel[mKey])
+      byModel[mKey] = { calls: 0, input: 0, output: 0, total: 0 };
     byModel[mKey].calls += 1;
     byModel[mKey].input += inTok;
     byModel[mKey].output += outTok;
     byModel[mKey].total += totTok;
 
     const aKey = e.agent || "unknown";
-    if (!byAgent[aKey]) byAgent[aKey] = { calls: 0, input: 0, output: 0, total: 0 };
+    if (!byAgent[aKey])
+      byAgent[aKey] = { calls: 0, input: 0, output: 0, total: 0 };
     byAgent[aKey].calls += 1;
     byAgent[aKey].input += inTok;
     byAgent[aKey].output += outTok;

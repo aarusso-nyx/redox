@@ -13,4 +13,3 @@
 - Coverage & traceability:
   - Every Angular route and NestJS endpoint must link to ≥1 Use Case in the Coverage Matrix.
   - Emit unmapped routes/endpoints explicitly in `unmapped.routes` / `unmapped.endpoints`; these should be empty lists for the coverage gate to pass.
-

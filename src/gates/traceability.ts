@@ -25,7 +25,10 @@ export function traceabilityGate(matrix: any) {
     }
   }
 
-  if (Array.isArray(matrix.endpoints) && typeof stats.endpointCount === "number") {
+  if (
+    Array.isArray(matrix.endpoints) &&
+    typeof stats.endpointCount === "number"
+  ) {
     if (stats.endpointCount !== matrix.endpoints.length) {
       throw new Error(
         `TraceabilityGate stats mismatch: endpointCount=${stats.endpointCount} endpoints.length=${matrix.endpoints.length}`,
@@ -33,7 +36,10 @@ export function traceabilityGate(matrix: any) {
     }
   }
 
-  if (Array.isArray(matrix.useCases) && typeof stats.useCaseCount === "number") {
+  if (
+    Array.isArray(matrix.useCases) &&
+    typeof stats.useCaseCount === "number"
+  ) {
     if (stats.useCaseCount !== matrix.useCases.length) {
       throw new Error(
         `TraceabilityGate stats mismatch: useCaseCount=${stats.useCaseCount} useCases.length=${matrix.useCases.length}`,
@@ -49,4 +55,3 @@ export function traceabilityGate(matrix: any) {
     }
   }
 }
-

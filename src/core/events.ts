@@ -13,11 +13,16 @@ export type EngineEvent = {
 
 let globalListener: ((event: EngineEvent) => void) | null = null;
 
-export function setEngineEventListener(listener: ((event: EngineEvent) => void) | null) {
+export function setEngineEventListener(
+  listener: ((event: EngineEvent) => void) | null,
+) {
   globalListener = listener;
 }
 
-export function emitEngineEvent(event: Omit<EngineEvent, "timestamp">, local?: (e: EngineEvent) => void) {
+export function emitEngineEvent(
+  event: Omit<EngineEvent, "timestamp">,
+  local?: (e: EngineEvent) => void,
+) {
   const enriched: EngineEvent = {
     ...event,
     timestamp: new Date().toISOString(),
@@ -37,4 +42,3 @@ export function emitEngineEvent(event: Omit<EngineEvent, "timestamp">, local?: (
     }
   }
 }
-

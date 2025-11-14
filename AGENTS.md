@@ -83,7 +83,7 @@ docs/
 
 5) Coding standards
 	•	Language: TypeScript (ES2022), strict mode on; prefer pure functions for extractors and side‑effect boundaries in orchestrator.
-	•	Formatting & linting: Prettier + ESLint in CI; zero warnings policy.
+	•	Formatting & linting: Prettier + ESLint in CI; zero warnings policy. All code‑writing agents must keep the implementation aligned with the rules implicit in `eslint.config.cjs` and `.prettierrc.json`, and ensure `npm run lint` and `npm run format:check` stay green.
 	•	Naming: files are kebab‑case; types/interfaces are PascalCase; functions camelCase.
 	•	Error handling: throw typed errors; never swallow failed gates.
 	•	Logging: structured logs (JSON when CI=true), redact secrets; no raw PII.

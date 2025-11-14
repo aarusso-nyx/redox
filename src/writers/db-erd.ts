@@ -22,7 +22,10 @@ export function buildMermaidFromModel(model: DbModel): string {
   return lines.join("\n");
 }
 
-export function renderErdNarrative(model: DbModel, paths: { mmd: string; img: string }): string {
+export function renderErdNarrative(
+  model: DbModel,
+  paths: { mmd: string; img: string },
+): string {
   const out: string[] = [];
   out.push("# Entity–Relationship Diagram");
   out.push("");
@@ -42,11 +45,17 @@ export function renderErdNarrative(model: DbModel, paths: { mmd: string; img: st
   }
   out.push("");
   out.push("---");
-  out.push("_Generated from live PostgreSQL catalogs; see `database.sql` for authoritative DDL._");
+  out.push(
+    "_Generated from live PostgreSQL catalogs; see `database.sql` for authoritative DDL._",
+  );
   return out.join("\n");
 }
 
-export async function writeDbAndErdDocs(root: string, docsDir: string, model: DbModel) {
+export async function writeDbAndErdDocs(
+  root: string,
+  docsDir: string,
+  model: DbModel,
+) {
   const diagramsDir = path.join(docsDir, "diagrams");
   const scriptsDir = path.join(docsDir, "scripts");
   await fs.ensureDir(docsDir);
@@ -57,7 +66,11 @@ export async function writeDbAndErdDocs(root: string, docsDir: string, model: Db
   const pngPath = path.join(docsDir, "erd.png");
   const mmd = buildMermaidFromModel(model);
   await fs.writeFile(mmdPath, mmd, "utf8");
-  emitEngineEvent({ type: "artifact-written", file: mmdPath, data: { artifact: "erd.mmd" } });
+  emitEngineEvent({
+    type: "artifact-written",
+    file: mmdPath,
+    data: { artifact: "erd.mmd" },
+  });
 
   const renderScriptPath = path.join(scriptsDir, "render-mermaid.sh");
   await fs.writeFile(

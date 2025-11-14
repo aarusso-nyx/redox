@@ -12,4 +12,3 @@
 - Coverage & traceability:
   - Include both SPA routes and Blade entry points in the Coverage Matrix and ensure each maps to ≥1 API endpoint and Use Case wherever the UX genuinely calls the backend.
   - Highlight gaps: SPA calls that hit endpoints not present in `route:list`, Blade views whose routes are missing or ambiguous, and endpoints with no visible UI surface.
-

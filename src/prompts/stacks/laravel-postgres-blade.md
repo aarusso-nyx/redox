@@ -13,4 +13,3 @@
 - Coverage & traceability:
   - Ensure every HTTP route and Blade-driven page is covered by ≥1 Use Case; treat server-rendered pages as frontend routes in the Coverage Matrix.
   - Explicitly list routes without Blade views (pure API) and Blade views whose routes cannot be resolved; these gaps should show up in `unmapped` lists and be called out in docs.
-
