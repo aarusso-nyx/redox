@@ -701,7 +701,7 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
     if (shouldSynthesize) {
       await orchestrate("synthesize", {
         ...opts,
-        profile: stage === "all" ? "dev" : stage,
+        profile: stage === "all" ? "all" : stage,
       });
     }
     if (shouldRender) {
