@@ -22,7 +22,7 @@ async function artifactExists(engine: EngineContext, rel: string) {
   return fs.pathExists(path.join(engine.root, rel));
 }
 
-async function gatherState(engine: EngineContext) {
+export async function gatherState(engine: EngineContext) {
   const docsDir = engine.docsDir;
   const evidenceDir = engine.evidenceDir;
   const [
@@ -126,7 +126,7 @@ ${JSON.stringify(state, null, 2)}
       process.env.REDOX_MODEL_MAESTRO ??
       process.env.REDOX_MODEL_WRITER ??
       "gpt-5.1",
-    reasoningEffort: "high",
+    reasoningEffort: "medium",
     verbosity: "medium",
     maxOutputTokens: 4000,
     agent: "maestro",

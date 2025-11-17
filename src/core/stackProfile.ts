@@ -45,7 +45,7 @@ ${JSON.stringify(context, null, 2)}
   const res = await askLLM(userPrompt, {
     model: process.env.REDOX_MODEL_WRITER ?? "gpt-5.1",
     jsonSchema: schema,
-    reasoningEffort: "high",
+    reasoningEffort: "medium",
     verbosity: "medium",
     maxOutputTokens: 4000,
     agent: "repo-scanner",

@@ -1,14 +1,16 @@
 #!/usr/bin/env node
 import blessed from "blessed";
+import fs from "fs-extra";
 import path from "node:path";
 import { detectAndLoadContext } from "../core/context.js";
 import { orchestrate } from "../core/orchestrator.js";
-import { runMaestro } from "../core/maestro.js";
+import { runMaestro, gatherState } from "../core/maestro.js";
 import {
   setEngineEventListener,
   emitEngineEvent,
   type EngineEvent,
 } from "../core/events.js";
+import { summarizeUsage } from "../core/usage.js";
 
 type OrchestratorMode = "scripted" | "maestro";
 type MainView =
@@ -28,7 +30,16 @@ type RunConfig = {
   profile: "dev" | "user" | "audit" | "all";
   mode: OrchestratorMode;
   stage: "dev" | "user" | "audit" | "all";
+  // Comma-separated doc families (informational; profile+stage drive behavior).
+  docs: string;
   gates: string;
+  // Model + token controls exposed in the UI (initialised from env but
+  // currently informational; engine still uses environment variables).
+  writerModel: string;
+  maestroModel: string;
+  reviewerModel: string;
+  translatorModel: string;
+  maxOutputTokens: number;
   dryRun: boolean;
   debug: boolean;
   verbose: boolean;
@@ -68,7 +79,22 @@ function createInitialState(dir: string): UiState {
       profile: "dev",
       mode: "scripted",
       stage: "dev",
+      docs: "dev,user,audit",
       gates: "schema,coverage,evidence,build,traceability",
+      writerModel: process.env.REDOX_MODEL_WRITER ?? "gpt-5.1",
+      maestroModel:
+        process.env.REDOX_MODEL_MAESTRO ??
+        process.env.REDOX_MODEL_WRITER ??
+        "gpt-5.1",
+      reviewerModel:
+        process.env.REDOX_MODEL_REVIEW ??
+        process.env.REDOX_MODEL_WRITER ??
+        "gpt-5.1",
+      translatorModel:
+        process.env.REDOX_MODEL_TRANSLATOR ??
+        process.env.REDOX_MODEL_WRITER ??
+        "gpt-5.1",
+      maxOutputTokens: 10_000,
       dryRun: false,
       debug: false,
       verbose: true,
@@ -211,28 +237,28 @@ async function main() {
     top: 1,
     left: 0,
     bottom: 2,
-    width: 30,
-    label: "Hints",
+    width: "40%",
+    label: "Config",
     border: "line",
     style: { border: { fg: "gray" } },
   });
 
   const rightPanel = blessed.box({
     top: 1,
-    right: 0,
+    left: "40%",
     bottom: 2,
-    width: 30,
-    label: "Mini dash",
+    width: "60%",
+    label: "Progress",
     border: "line",
     style: { border: { fg: "gray" } },
   });
 
   const mainBox = blessed.box({
-    top: 1,
-    left: 30,
-    right: 30,
+    top: 3,
+    left: 0,
+    right: 0,
     bottom: 2,
-    label: "Main",
+    label: "Details",
     border: "line",
     tags: true,
     style: { border: { fg: "white" } },
@@ -244,26 +270,86 @@ async function main() {
 
   screen.append(topBar);
   screen.append(bottomBar);
+  // Ensure the main details panel is the background layer and
+  // side panels sit on top for a true two-pane layout.
+  screen.append(mainBox);
   screen.append(leftPanel);
   screen.append(rightPanel);
-  screen.append(mainBox);
+
+  async function loadInitialOutDirState() {
+    try {
+      const ctx = await detectAndLoadContext({
+        dir: state.config.dir,
+        out: undefined,
+        dryRun: false,
+        debug: false,
+        verbose: false,
+        quiet: false,
+      });
+      state.repoRoot = ctx.engine.root;
+      state.docsDir = ctx.engine.docsDir;
+      state.evidenceDir = ctx.engine.evidenceDir;
+
+      // Inspect current docs/artifacts state (persisted plan).
+      const plan = await gatherState(ctx.engine);
+      if (plan.docs.overview) state.docs.add("Overview.md");
+      if (plan.docs.architecture) state.docs.add("Architecture Guide.md");
+      if (plan.docs.db) state.docs.add("Database Reference.md");
+      if (plan.docs.userGuide) state.docs.add("User Guide.md");
+      if (plan.docs.fpReport) state.docs.add("Function Point Report.md");
+
+      if (plan.artifacts.apiMap) state.artifacts.add("api-map.json");
+      if (plan.artifacts.routes) state.artifacts.add("routes-*.json");
+      if (plan.artifacts.useCases) state.artifacts.add("use-cases.json");
+      if (plan.artifacts.coverageMatrix)
+        state.artifacts.add("coverage-matrix.json");
+      if (plan.artifacts.fpAppendix)
+        state.artifacts.add("fp-appendix.json");
+      if (plan.artifacts.rbac) state.artifacts.add("rbac.json");
+      if (plan.artifacts.lgpd) state.artifacts.add("lgpd-map.json");
+
+      // Approximate completed stages based on persisted artifacts.
+      const stages = new Set<string>();
+      if (plan.artifacts.apiMap) stages.add("extract");
+      if (
+        plan.docs.overview ||
+        plan.docs.architecture ||
+        plan.docs.db ||
+        plan.docs.userGuide ||
+        plan.docs.fpReport
+      ) {
+        stages.add("synthesize");
+      }
+      const erdPath = path.join(plan.docsDir, "ERD.md");
+      if (await fs.pathExists(erdPath)) {
+        stages.add("render");
+      }
+      if (plan.artifacts.coverageMatrix) {
+        stages.add("check");
+      }
+      state.completedStages = stages;
+
+      // Seed token usage and agent stats from persisted usage.jsonl
+      const usage = await summarizeUsage();
+      for (const [agent, stats] of Object.entries(usage.byAgent)) {
+        state.agentStats[agent] = {
+          calls: stats.calls,
+          totalTokens: stats.total,
+          inputTokens: stats.input,
+          outputTokens: stats.output,
+        };
+      }
+    } catch {
+      // Best-effort; UI still works without persisted state.
+    }
+  }
 
   function layout() {
     leftPanel.hidden = !leftVisible;
     rightPanel.hidden = !rightVisible;
-    if (leftVisible && rightVisible) {
-      mainBox.left = 30;
-      mainBox.right = 30;
-    } else if (leftVisible && !rightVisible) {
-      mainBox.left = 30;
-      mainBox.right = 0;
-    } else if (!leftVisible && rightVisible) {
-      mainBox.left = 0;
-      mainBox.right = 30;
-    } else {
-      mainBox.left = 0;
-      mainBox.right = 0;
-    }
+    // Main box always spans full width; side panels overlay the top rows.
+    mainBox.left = 0;
+    mainBox.right = 0;
   }
 
   function renderTop() {
@@ -306,28 +392,48 @@ async function main() {
     const total = pipeline.length;
     const progressPct = total > 0 ? Math.round((completed / total) * 100) : 0;
 
+    const tokens = Object.values(state.agentStats).reduce(
+      (acc, s) => acc + s.totalTokens,
+      0,
+    );
+
     topBar.setContent(
-      ` repo={bold}${repo}{/} profile=${cfg.profile} stage=${stage} mode=${mode} gates=${cfg.gates} flags=[${flags}] ${status}` +
+      ` repo={bold}${repo}{/} profile={cyan-fg}${cfg.profile}{/} stage={yellow-fg}${stage}{/} mode=${mode}` +
+        ` gates=${cfg.gates} flags=[${flags}] ${status}` +
         (elapsedSec !== null
-          ? ` time=${elapsedSec}s` +
+          ? ` time={green-fg}${elapsedSec}s{/}` +
             (estSec !== null ? `~${estSec}s` : "") +
-            ` progress=${progressPct}%`
-          : ""),
+            ` progress={green-fg}${progressPct}%{/}`
+          : "") +
+        ` tokens={magenta-fg}${tokens}{/}`,
     );
   }
 
   function renderLeftPanel() {
     const cfg = state.config;
-    let content = "Keys:\n";
-    content += "  F5/Enter: run\n";
-    content += "  Tab: cycle view\n";
-    content += "  a/t/g/l/p/c/f/i/e/o: switch view\n";
-    content += "  [/]: toggle side panels\n";
-    content += "\nConfig:\n";
-    content += `  dir: ${cfg.dir}\n`;
-    content += `  profile: ${cfg.profile}\n`;
-    content += `  stage: ${cfg.stage}\n`;
-    content += `  mode: ${cfg.mode}\n`;
+    let content = "{bold}Run Configuration{/}\n";
+    content += ` dir: ${cfg.dir}\n`;
+    content += ` profile: ${cfg.profile} (P to cycle)\n`;
+    content += ` stage: ${cfg.stage} (s to cycle)\n`;
+    content += ` mode: ${cfg.mode} (m to toggle)\n`;
+    content += ` docs: ${cfg.docs}\n`;
+    content += ` gates: ${cfg.gates}\n`;
+    content += "\n{bold}Models{/}\n";
+    content += ` writer: ${cfg.writerModel}\n`;
+    content += ` maestro: ${cfg.maestroModel}\n`;
+    content += ` reviewer: ${cfg.reviewerModel}\n`;
+    content += ` translator: ${cfg.translatorModel}\n`;
+    content += ` maxOutputTokens: ${cfg.maxOutputTokens}\n`;
+    content += "\n{bold}Flags{/}\n";
+    content += ` dryRun: ${cfg.dryRun} (d)\n`;
+    content += ` debug: ${cfg.debug} (b)\n`;
+    content += ` verbose: ${cfg.verbose} (v)\n`;
+    content += ` quiet: ${cfg.quiet} (Q)\n`;
+    content += "\n{bold}Keys{/}\n";
+    content += " F5/Enter: run\n";
+    content += " Tab/S-Tab: cycle view\n";
+    content += " a/t/g/l/p/c/f/i/e/o: switch view\n";
+    content += " [/]: toggle side panels\n";
     leftPanel.setContent(content);
   }
 
@@ -340,12 +446,12 @@ async function main() {
       (acc, s) => acc + s.totalTokens,
       0,
     );
-    let content = "Usage (current run)\n";
-    content += `  calls: ${totalCalls}\n`;
-    content += `  tokens: ${totalTokens}\n`;
-    content += "\nArtifacts:\n";
-    content += `  docs: ${state.docs.size}\n`;
-    content += `  json: ${state.artifacts.size}\n`;
+    let content = "{bold}Progress{/}\n";
+    content += ` calls: ${totalCalls}\n`;
+    content += ` tokens: ${totalTokens}\n`;
+    content += "\nDocs:\n";
+    content += ` docs: ${state.docs.size}\n`;
+    content += ` json: ${state.artifacts.size}\n`;
     content += "\nGates:\n";
     for (const [gate, stats] of Object.entries(state.gatesStatus)) {
       content += `  ${gate}: ${stats.ended}/${stats.started}\n`;
@@ -357,41 +463,71 @@ async function main() {
     const cfg = state.config;
     if (mainView === "actions") {
       const lines: string[] = [];
-      lines.push("Actions (stages & gates):");
+      lines.push("{bold}Actions (stages & gates){/}");
       for (const ev of state.events.slice(-80)) {
         if (ev.type === "stage-start" || ev.type === "stage-end") {
+          const ok =
+            "success" in ev && typeof ev.success === "boolean"
+              ? ev.success
+              : null;
+          const color =
+            ev.type === "stage-start"
+              ? "yellow-fg"
+              : ok === true
+                ? "green-fg"
+                : ok === false
+                  ? "red-fg"
+                  : "white-fg";
           lines.push(
-            `${ev.timestamp} stage=${ev.stage} type=${ev.type} success=${"success" in ev ? ev.success : ""}`,
+            `{${color}}stage=${ev.stage} type=${ev.type} success=${ok}{/}`,
           );
         } else if (ev.type === "gate-start" || ev.type === "gate-end") {
+          const ok =
+            "success" in ev && typeof ev.success === "boolean"
+              ? ev.success
+              : null;
+          const color =
+            ev.type === "gate-start"
+              ? "yellow-fg"
+              : ok === true
+                ? "green-fg"
+                : ok === false
+                  ? "red-fg"
+                  : "white-fg";
           lines.push(
-            `${ev.timestamp} gate=${ev.gate} type=${ev.type} success=${"success" in ev ? ev.success : ""}`,
+            `{${color}}gate=${ev.gate} type=${ev.type} success=${ok}{/}`,
           );
         } else if (ev.type === "log") {
           const level = ev.data?.level ?? "info";
           const msg = ev.data?.message ?? "";
-          lines.push(`${ev.timestamp} [${level}] ${msg}`);
+          const color =
+            level === "error"
+              ? "red-fg"
+              : level === "warn"
+                ? "yellow-fg"
+                : "white-fg";
+          lines.push(`{${color}}[${level}] ${msg}{/}`);
         }
       }
       mainBox.setContent(lines.join("\n") || "No actions yet.");
     } else if (mainView === "usage") {
       const lines: string[] = [];
-      lines.push("Recent LLM calls:");
+      lines.push("{bold}Recent LLM calls{/}");
       for (const ev of state.llmEvents.slice(-40)) {
         const d = ev.data ?? {};
         lines.push(
-          `${ev.timestamp} agent=${ev.agent ?? "?"} model=${ev.model ?? "?"} in=${d.inputTokens ?? ""} out=${
-            d.outputTokens ?? ""
-          } tot=${d.totalTokens ?? ""}`,
+          `agent=${ev.agent ?? "?"} model=${ev.model ?? "?"} in=${
+            d.inputTokens ?? ""
+          } out=${d.outputTokens ?? ""} tot=${d.totalTokens ?? ""}`,
         );
       }
       mainBox.setContent(lines.join("\n") || "No LLM calls yet.");
     } else if (mainView === "agentsTop") {
       const lines: string[] = [];
       lines.push("Agents (aggregated this run):");
-      const entries = Object.entries(state.agentStats).sort(
-        (a, b) => b[1].totalTokens - a[1].totalTokens,
-      );
+      const entries = Object.entries(state.agentStats).sort((a, b) => {
+        return b[1].totalTokens - a[1].totalTokens;
+      });
       for (const [agent, stats] of entries) {
         lines.push(
           `${agent} calls=${stats.calls} tokens=${stats.totalTokens} in=${stats.inputTokens} out=${stats.outputTokens}`,
@@ -411,17 +547,23 @@ async function main() {
       mainBox.setContent(lines.join("\n") || "No doc/artifact events yet.");
     } else if (mainView === "logs") {
       const lines: string[] = [];
-      lines.push("Logs (raw console):");
+      lines.push("{bold}Logs (raw console){/}");
       const logs = state.events.filter((ev) => ev.type === "log").slice(-80);
       for (const ev of logs) {
         const level = ev.data?.level ?? "info";
         const msg = ev.data?.message ?? "";
-        lines.push(`${ev.timestamp} [${level}] ${msg}`);
+        const color =
+          level === "error"
+            ? "red-fg"
+            : level === "warn"
+              ? "yellow-fg"
+              : "white-fg";
+        lines.push(`{${color}}[${level}] ${msg}{/}`);
       }
       mainBox.setContent(lines.join("\n") || "No logs yet.");
     } else if (mainView === "progress") {
       const lines: string[] = [];
-      lines.push("Progress & artifacts:");
+      lines.push("{bold}Progress & artifacts{/}");
       lines.push(`  running: ${state.running}`);
       lines.push(`  current stage: ${state.currentStage ?? "(none)"}`);
       lines.push("");
@@ -438,7 +580,7 @@ async function main() {
       mainBox.setContent(lines.join("\n"));
     } else if (mainView === "config") {
       const lines: string[] = [];
-      lines.push("Config:");
+      lines.push("{bold}Config{/}");
       lines.push(`  dir: ${cfg.dir}`);
       lines.push(`  profile: ${cfg.profile}`);
       lines.push(`  stage: ${cfg.stage}`);
@@ -456,7 +598,7 @@ async function main() {
       mainBox.setContent(lines.join("\n"));
     } else if (mainView === "flags") {
       const lines: string[] = [];
-      lines.push("Flags & toggles (press keys to toggle):");
+      lines.push("{bold}Flags & toggles{/}");
       lines.push(`  d) dry-run: ${cfg.dryRun}`);
       lines.push(`  b) debug:   ${cfg.debug}`);
       lines.push(`  v) verbose: ${cfg.verbose}`);
@@ -746,6 +888,10 @@ async function main() {
     redraw();
   });
 
+  // Load any existing outDir/.redox state so the UI can
+  // show which docs/artifacts/stages are already complete
+  // before the first run.
+  await loadInitialOutDirState();
   redraw();
 }
 

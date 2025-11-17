@@ -93,9 +93,13 @@ program
   .description("Synthesize prose with gates")
   .argument("[dir]", "target project directory", ".")
   .option("--profile <dev|user|audit|all>", "doc profile", "dev")
-  .action(async (dir, cmd) =>
-    runSynthesize({ ...program.opts(), ...cmd.opts(), dir }),
-  );
+  .action(async (dir, cmd) => {
+    const subcommandOpts =
+      cmd && typeof (cmd as any).opts === "function"
+        ? (cmd as any).opts()
+        : (cmd ?? {});
+    await runSynthesize({ ...program.opts(), ...subcommandOpts, dir });
+  });
 program
   .command("render")
   .description("Render diagrams")

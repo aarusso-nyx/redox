@@ -93,7 +93,7 @@ ${src}
         process.env.REDOX_MODEL_TRANSLATOR ??
         process.env.REDOX_MODEL_WRITER ??
         "gpt-5.1",
-      reasoningEffort: "high",
+      reasoningEffort: "medium",
       verbosity: "medium",
       agent: `translator/${lang}`,
       stage: "translate",

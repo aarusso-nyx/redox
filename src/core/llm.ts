@@ -50,7 +50,12 @@ export async function askLLM(prompt: string, opts: LLMOpts) {
     reasoningEffort,
     verbosity,
     maxOutputTokens,
-    previousResponseId,
+    // NOTE: previousResponseId is currently unused for Responses API calls
+    // because chaining responses that involved tool calls without also
+    // providing tool_outputs can trigger 400 errors like:
+    // "No tool output found for function call ...".
+    // It is kept in the opts type for future compatibility.
+    // previousResponseId,
   } = opts;
   const body: any = {
     model,
@@ -58,21 +63,25 @@ export async function askLLM(prompt: string, opts: LLMOpts) {
     tools,
   };
 
-  // GPT-5 family: prefer highest suggested reasoning and verbosity by default
+  // GPT-5 family: prefer balanced reasoning/verbosity by default
   if (model.startsWith("gpt-5")) {
     body.reasoning = {
-      effort: reasoningEffort ?? "high",
+      effort: reasoningEffort ?? "medium",
     };
     body.text = {
-      verbosity: verbosity ?? "high",
+      verbosity: verbosity ?? "medium",
     };
-    if (typeof maxOutputTokens === "number") {
-      body.max_output_tokens = maxOutputTokens;
-    }
-  }
 
-  if (previousResponseId) {
-    body.previous_response_id = previousResponseId;
+    // Apply a global max_output_tokens cap of 10k; if callers
+    // specify a higher value, clamp it down, otherwise default
+    // to 10k to avoid unbounded responses.
+    const cap = 10_000;
+    if (typeof maxOutputTokens === "number") {
+      body.max_output_tokens =
+        maxOutputTokens > cap ? cap : maxOutputTokens;
+    } else {
+      body.max_output_tokens = cap;
+    }
   }
 
   if (

@@ -80,8 +80,8 @@ ${JSON.stringify(context, null, 2)}
 
   const res = await askLLM(userPrompt, {
     model: process.env.REDOX_MODEL_WRITER ?? "gpt-5.1",
-    reasoningEffort: "high",
-    verbosity: "high",
+    reasoningEffort: "medium",
+    verbosity: "low",
     maxOutputTokens: 6000,
     agent: "dep-grapher",
     stage: "extract",
