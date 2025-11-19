@@ -303,8 +303,7 @@ async function main() {
       if (plan.artifacts.useCases) state.artifacts.add("use-cases.json");
       if (plan.artifacts.coverageMatrix)
         state.artifacts.add("coverage-matrix.json");
-      if (plan.artifacts.fpAppendix)
-        state.artifacts.add("fp-appendix.json");
+      if (plan.artifacts.fpAppendix) state.artifacts.add("fp-appendix.json");
       if (plan.artifacts.rbac) state.artifacts.add("rbac.json");
       if (plan.artifacts.lgpd) state.artifacts.add("lgpd-map.json");
 
@@ -888,7 +887,7 @@ async function main() {
     redraw();
   });
 
-  // Load any existing outDir/.redox state so the UI can
+  // Load any existing outDir/facts state so the UI can
   // show which docs/artifacts/stages are already complete
   // before the first run.
   await loadInitialOutDirState();

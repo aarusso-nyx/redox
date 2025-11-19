@@ -4,8 +4,56 @@ import type { EngineContext } from "./context.js";
 import type { LaravelRoute } from "../extractors/api-laravel.js";
 import type { NestRoute } from "../extractors/api-nest.js";
 import type { ApiEndpoint, ApiMap, HttpMethod } from "./types.js";
+import { sha256 } from "./evidence.js";
+
+type EvidenceRef = {
+  path: string;
+  startLine: number;
+  endLine: number;
+  sha256?: string;
+};
+
+function fileShaSafe(file: string) {
+  try {
+    const content = fs.readFileSync(file, "utf8");
+    return sha256(content);
+  } catch {
+    return undefined;
+  }
+}
+
+function evidenceFromFile(
+  file: string,
+  start: number,
+  end?: number,
+): EvidenceRef {
+  const abs = path.resolve(file);
+  const hash = fileShaSafe(abs);
+  return {
+    path: file,
+    startLine: start,
+    endLine: end ?? start,
+    sha256: hash,
+  };
+}
+
+function findPhpMethodLine(file: string, methodName?: string) {
+  if (!methodName) return null;
+  try {
+    const abs = path.resolve(file);
+    const content = fs.readFileSync(abs, "utf8");
+    const lines = content.split(/\r?\n/);
+    const target = new RegExp(`function\\s+${methodName}\\s*\\(`);
+    const idx = lines.findIndex((ln: string) => target.test(ln));
+    if (idx === -1) return null;
+    return idx + 1;
+  } catch {
+    return null;
+  }
+}
 
 export function buildApiMapFromRoutes(
+  root: string,
   routes: LaravelRoute[],
   nestRoutes: NestRoute[],
 ) {
@@ -39,6 +87,9 @@ export function buildApiMapFromRoutes(
 
       if (!controllerFile) continue;
 
+      const methodLine =
+        findPhpMethodLine(path.join(root, controllerFile), methodName) ?? 1;
+
       const id = `${method} ${pathStr}`;
       endpoints.push({
         id,
@@ -48,15 +99,16 @@ export function buildApiMapFromRoutes(
           file: controllerFile,
           class: controllerClass,
           methodName,
+          startLine: methodLine,
+          endLine: methodLine,
         },
         source: "routes",
         evidence: [
-          {
-            path: controllerFile,
-            startLine: 1,
-            endLine: 1,
-          },
+          evidenceFromFile(path.join(root, controllerFile), methodLine),
         ],
+        auth: r.middleware?.length
+          ? { required: r.middleware.includes("auth"), guards: r.middleware }
+          : undefined,
       });
     }
   }
@@ -76,14 +128,32 @@ export function buildApiMapFromRoutes(
         file: r.file,
         class: r.controller,
         methodName: r.methodName,
+        startLine: r.startLine,
+        endLine: r.endLine,
       },
       source: "routes",
+      params: r.params?.map((p) => ({
+        name: p.name,
+        in: p.in,
+        required: p.in === "path",
+      })),
+      auth:
+        r.guards && r.guards.length
+          ? { required: true, guards: r.guards }
+          : undefined,
+      responses: r.statusCode
+        ? [
+            {
+              status: r.statusCode,
+            },
+          ]
+        : undefined,
       evidence: [
-        {
-          path: r.file,
-          startLine: 1,
-          endLine: 1,
-        },
+        evidenceFromFile(
+          r.file,
+          r.startLine ?? 1,
+          r.endLine ?? r.startLine ?? 1,
+        ),
       ],
     });
   }

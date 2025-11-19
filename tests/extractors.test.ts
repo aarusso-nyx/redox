@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import { nestControllers } from "../src/extractors/api-nest.js";
 import { angularRoutes } from "../src/extractors/fe-angular.js";
 import { detectFrontend } from "../src/extractors/frontend-detect.js";
+import { buildDbModelFallback } from "../src/extractors/db.js";
+import { extractReactRoutes } from "../src/extractors/react-routes.js";
 import fs from "fs-extra";
 import path from "node:path";
 
@@ -96,6 +98,64 @@ describe("extractors", () => {
 
     const mode = await detectFrontend(tmp);
     expect(["mixed", "blade", "react", "angular"]).toContain(mode);
+
+    fs.removeSync(tmp);
+  });
+
+  it("buildDbModelFallback parses simple Laravel migrations", async () => {
+    const tmp = path.join(process.cwd(), ".tmp-db-fallback");
+    fs.removeSync(tmp);
+    fs.ensureDirSync(path.join(tmp, "database/migrations"));
+    const migration = `
+      <?php
+      use Illuminate\\Database\\Schema\\Blueprint;
+      use Illuminate\\Support\\Facades\\Schema;
+
+      return new class extends Migration {
+        public function up() {
+          Schema::create('posts', function (Blueprint $table) {
+            $table->id();
+            $table->string('title')->nullable();
+            $table->text('body');
+          });
+        }
+      };
+    `;
+    fs.writeFileSync(
+      path.join(tmp, "database/migrations/2023_01_01_000001_create_posts.php"),
+      migration,
+      "utf8",
+    );
+
+    const model = await buildDbModelFallback(tmp);
+    const table = model.tables.find((t) => t.name === "posts");
+    expect(table).toBeTruthy();
+    expect(table?.columns.map((c) => c.name)).toContain("title");
+    expect(table?.columns.find((c) => c.name === "title")?.nullable).toBe(true);
+
+    fs.removeSync(tmp);
+  });
+
+  it("extractReactRoutes handles createBrowserRouter object configs", async () => {
+    const tmp = path.join(process.cwd(), ".tmp-react-routes");
+    fs.removeSync(tmp);
+    fs.ensureDirSync(path.join(tmp, "resources/js"));
+    const source = `
+      import { createBrowserRouter } from "react-router-dom";
+      const router = createBrowserRouter([
+        { path: "/dashboard", element: <Dashboard /> },
+        { path: "/profile", element: ProfilePage, children: [
+            { path: "edit", element: <EditProfile /> }
+        ] }
+      ]);
+    `;
+    fs.writeFileSync(path.join(tmp, "resources/js/routes.tsx"), source, "utf8");
+
+    const { routes } = await extractReactRoutes(tmp);
+    const paths = routes.map((r) => r.path);
+    expect(paths).toContain("/dashboard");
+    expect(paths).toContain("/profile");
+    expect(paths.some((p) => String(p).includes("edit"))).toBe(true);
 
     fs.removeSync(tmp);
   });

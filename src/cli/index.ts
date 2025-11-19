@@ -126,7 +126,7 @@ program
   .action(async () => runDoctor(program.opts()));
 program
   .command("usage")
-  .description("Print token usage report from .redox/usage.jsonl")
+  .description("Print token usage report from facts/usage.jsonl")
   .action(async () => printUsageReport());
 
 program

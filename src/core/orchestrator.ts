@@ -15,6 +15,7 @@ import {
   connectByEnv,
   introspect,
   buildDDLFromMigrations,
+  buildDbModelFallback,
   type DbModel,
 } from "../extractors/db.js";
 import { laravelRoutes, type LaravelRoute } from "../extractors/api-laravel.js";
@@ -23,6 +24,7 @@ import { extractBlade } from "../extractors/blade.js";
 import { extractReactRoutes } from "../extractors/react-routes.js";
 import { angularRoutes } from "../extractors/fe-angular.js";
 import { nestControllers, type NestRoute } from "../extractors/api-nest.js";
+import { extractExistingDocs } from "../extractors/docs.js";
 import { buildApiMapFromRoutes, writeApiMapArtifact } from "./apiMapBuilder.js";
 import { writeRoutesArtifacts } from "./routesArtifacts.js";
 import { writeDbAndErdFromModel } from "../writers/dev-docs.js";
@@ -38,6 +40,7 @@ import {
   securityReview,
   docsReview,
 } from "../reviewers/reviewers.js";
+import { summarizeUsage } from "./usage.js";
 
 type Stage =
   | "dev"
@@ -76,12 +79,67 @@ function logDebug(enabled: boolean, message: string, detail?: unknown) {
   console.log(`[redox][debug] ${message}`, detail ?? "");
 }
 
+function usageTotals(summary: Awaited<ReturnType<typeof summarizeUsage>>) {
+  return {
+    input: summary?.totalInput ?? 0,
+    output: summary?.totalOutput ?? 0,
+    total: summary?.totalTokens ?? 0,
+  };
+}
+
+async function logUsageDelta(
+  stage: string,
+  before: Awaited<ReturnType<typeof summarizeUsage>>,
+) {
+  const usageAfter = await summarizeUsage();
+  const beforeTotals = usageTotals(before);
+  const afterTotals = usageTotals(usageAfter);
+  const delta = {
+    input: afterTotals.input - beforeTotals.input,
+    output: afterTotals.output - beforeTotals.output,
+    total: afterTotals.total - beforeTotals.total,
+  };
+  console.log(
+    `[redox][usage] stage=${stage} input=${delta.input} output=${delta.output} total=${delta.total} (cum: ${afterTotals.total})`,
+  );
+}
+
 async function runExtract(
   engine: EngineContext,
   dryRun: boolean,
   logEnabled: boolean,
 ) {
   logDebug(logEnabled, "Stage=extract", { root: engine.root });
+
+  const steps: { name: string; status: "ok" | "fail"; error?: string }[] = [];
+  const summary: {
+    hydratedEnv: string[];
+    dbTables: number;
+    dbSchemas: number;
+    backendRoutes: number;
+    frontendRoutes: number;
+    frontendMode: string;
+    stackHint: string;
+  } = {
+    hydratedEnv: [],
+    dbTables: 0,
+    dbSchemas: 0,
+    backendRoutes: 0,
+    frontendRoutes: 0,
+    frontendMode: "unknown",
+    stackHint: "",
+  };
+
+  const recordStep = (name: string, status: "ok" | "fail", error?: string) => {
+    steps.push({ name, status, error });
+    const prefix = status === "ok" ? "[success]" : "[fail]";
+    if (status === "ok") {
+      console.log(`[redox][extract] ${prefix} ${name}`);
+    } else {
+      console.error(`[redox][extract] ${prefix} ${name}: ${error ?? "error"}`);
+    }
+  };
+
   // DB introspection via Postgres catalogs (env-based strategy)
   let model: any = { tables: [], fks: [], indexes: [] };
   if (dryRun) {
@@ -89,23 +147,20 @@ async function runExtract(
       strategy: "env",
       note: "Would connect using DATABASE_URL and introspect catalogs",
     });
+    recordStep("DB:catalog", "ok");
   } else {
     let client: any;
+    let hydratedEnv: string[] = [];
     try {
       logDebug(logEnabled, "DB introspection: connectByEnv()");
-      client = await connectByEnv();
+      const res = await connectByEnv(engine.root);
+      client = res.client;
+      hydratedEnv = res.hydrated;
       model = await introspect(client);
-      logDebug(logEnabled, "DB introspection: completed", {
-        tableCount: model.tables.length,
-        fkCount: model.fks.length,
-      });
+      summary.hydratedEnv = hydratedEnv;
+      recordStep("DB:catalog", "ok");
     } catch (err) {
-      logDebug(
-        logEnabled,
-        "DB introspection failed; using empty model",
-        String((err as Error)?.message ?? err),
-      );
-      // fall back to empty model if DATABASE_URL/pg are unavailable
+      recordStep("DB:catalog", "fail", (err as Error)?.message ?? String(err));
     } finally {
       try {
         await client?.end?.();
@@ -114,51 +169,68 @@ async function runExtract(
       }
     }
   }
+  if (!model.tables.length) {
+    logDebug(logEnabled, "DB model empty; attempting migration fallback");
+    try {
+      const fallback = await buildDbModelFallback(engine.root);
+      model = fallback;
+      recordStep("DB:migrations", "ok");
+    } catch (err) {
+      recordStep(
+        "DB:migrations",
+        "fail",
+        (err as Error)?.message ?? String(err),
+      );
+    }
+  }
+
   dbModelCache = model;
+  summary.dbTables = model.tables.length;
+  summary.dbSchemas = new Set(model.tables.map((t: any) => t.schema)).size;
 
   // Laravel routes (if applicable)
   let routes: LaravelRoute[] = [];
   let nestRoutes: NestRoute[] = [];
   if (dryRun) {
-    logDebug(logEnabled, "Laravel routes (dry-run)", {
-      cwd: engine.root,
-      note: "Would run php artisan route:list --json with fallback to parsing routes/*.php",
-    });
-    logDebug(logEnabled, "NestJS routes (dry-run)", {
-      cwd: engine.root,
-      note: "Would scan NestJS controllers via ts-morph using tsconfig.json",
-    });
+    recordStep("Routes:laravel", "ok");
+    recordStep("Routes:nest", "ok");
   } else {
-    routes = await laravelRoutes(engine.root).catch(() => []);
-    logDebug(logEnabled, "Laravel routes: extracted", { count: routes.length });
+    try {
+      routes = await laravelRoutes(engine.root);
+      recordStep("Routes:laravel", "ok");
+    } catch (err) {
+      recordStep(
+        "Routes:laravel",
+        "fail",
+        (err as Error)?.message ?? String(err),
+      );
+    }
     try {
       nestRoutes = nestControllers(engine.root);
-      logDebug(logEnabled, "NestJS routes: extracted", {
-        count: nestRoutes.length,
-      });
+      recordStep("Routes:nest", "ok");
     } catch (err) {
-      logDebug(
-        logEnabled,
-        "NestJS routes extraction failed or not applicable",
-        String((err as Error)?.message ?? err),
-      );
+      recordStep("Routes:nest", "fail", (err as Error)?.message ?? String(err));
       nestRoutes = [];
     }
   }
   routesCache = routes;
+  summary.backendRoutes = routes.length + nestRoutes.length;
 
   // Frontend detection + mappings
   let frontendMode = "unknown";
   if (dryRun) {
-    logDebug(logEnabled, "Frontend detection (dry-run)", {
-      patterns: [
-        "resources/views/**/*.blade.php",
-        "resources/js/**/*.{tsx,jsx,ts,js}",
-        "src/**/*.routing.*",
-      ],
-    });
+    recordStep("Frontend:detect", "ok");
   } else {
-    frontendMode = await detectFrontend(engine.root);
+    try {
+      frontendMode = await detectFrontend(engine.root);
+      recordStep("Frontend:detect", "ok");
+    } catch (err) {
+      recordStep(
+        "Frontend:detect",
+        "fail",
+        (err as Error)?.message ?? String(err),
+      );
+    }
   }
   frontendCache = {
     mode: frontendMode,
@@ -170,20 +242,52 @@ async function runExtract(
     if (frontendMode === "blade" || frontendMode === "mixed") {
       logDebug(logEnabled, "Blade extraction", { root: engine.root });
       frontendCache.blade = await extractBlade(engine.root).catch(() => null);
+      recordStep("Frontend:blade", frontendCache.blade ? "ok" : "fail");
     }
     if (frontendMode === "react" || frontendMode === "mixed") {
       logDebug(logEnabled, "React routes extraction", { root: engine.root });
       frontendCache.react = await extractReactRoutes(engine.root).catch(
-        () => null,
+        (err) => {
+          recordStep(
+            "Frontend:react",
+            "fail",
+            (err as Error)?.message ?? String(err),
+          );
+          return null;
+        },
       );
+      if (frontendCache.react) recordStep("Frontend:react", "ok");
     }
     if (frontendMode === "angular" || frontendMode === "mixed") {
       logDebug(logEnabled, "Angular routes extraction", { root: engine.root });
       frontendCache.angular = { routes: angularRoutes(engine.root) };
+      recordStep("Frontend:angular", "ok");
     }
   }
 
-  // API Map + frontend routes artifacts
+  summary.frontendMode = frontendMode;
+  summary.frontendRoutes =
+    (frontendCache.react?.routes?.length ?? 0) +
+    (frontendCache.angular?.routes?.length ?? 0);
+
+  // Existing textual docs
+  let existingDocs: any = null;
+  if (dryRun) {
+    recordStep("Docs:existing", "ok");
+  } else {
+    try {
+      existingDocs = await extractExistingDocs(engine.root);
+      recordStep("Docs:existing", "ok");
+    } catch (err) {
+      recordStep(
+        "Docs:existing",
+        "fail",
+        (err as Error)?.message ?? String(err),
+      );
+    }
+  }
+
+  // API Map + frontend routes artifacts + existing docs artifact
   if (dryRun) {
     logDebug(logEnabled, "ApiMap/Routes artifacts (dry-run)", {
       apiRoutes: routes.length,
@@ -191,7 +295,7 @@ async function runExtract(
       frontendMode,
     });
   } else {
-    const apiMap = buildApiMapFromRoutes(routes, nestRoutes);
+    const apiMap = buildApiMapFromRoutes(engine.root, routes, nestRoutes);
     apiMapCache = apiMap;
     feRoutesCache = {
       react: frontendCache.react,
@@ -201,7 +305,59 @@ async function runExtract(
       await writeApiMapArtifact(engine, apiMap, logEnabled);
     }
     await writeRoutesArtifacts(engine, frontendCache, logEnabled);
+    if (existingDocs?.docs) {
+      const outPath = path.join(engine.evidenceDir, "existing-docs.json");
+      await fs.ensureDir(engine.evidenceDir);
+      await fs.writeJson(
+        outPath,
+        {
+          generatedAt: new Date().toISOString(),
+          docs: existingDocs.docs,
+        },
+        { spaces: 2 },
+      );
+      logDebug(logEnabled, "Existing docs artifact written", {
+        path: outPath,
+        count: existingDocs.docs.length,
+      });
+    }
   }
+
+  // Stack hint based on routes/frontend/db
+  const backendHint =
+    nestRoutes.length > 0
+      ? "nestjs"
+      : routes.length > 0
+        ? "laravel"
+        : engine.profile.hasPHP
+          ? "php"
+          : engine.profile.hasNode
+            ? "node"
+            : "unknown";
+  summary.stackHint = `${backendHint}/${frontendMode}/${model.dialect ?? "db"}`;
+
+  console.log("[redox][extract][summary] Stack:", summary.stackHint);
+  console.log(
+    "[redox][extract][summary] Hydrated env keys:",
+    summary.hydratedEnv.length ? summary.hydratedEnv.join(", ") : "none",
+  );
+  console.log(
+    "[redox][extract][summary] DB tables:",
+    summary.dbTables,
+    "schemas:",
+    summary.dbSchemas,
+  );
+  console.log(
+    "[redox][extract][summary] Backend routes:",
+    summary.backendRoutes,
+  );
+  console.log(
+    "[redox][extract][summary] Frontend routes:",
+    summary.frontendRoutes,
+    "(mode:",
+    summary.frontendMode,
+    ")",
+  );
 
   return {
     dbModel: model,
@@ -224,7 +380,7 @@ async function runRender(
       docs: "Write ERD artifacts under docs/",
       scripts: "Ensure docs/scripts/render-mermaid.sh exists",
       artifacts:
-        "Ensure evidence directory exists under docsDir/.redox and write RBAC/LGPD machine artifacts if DB model is available",
+        "Ensure evidence directory exists under docsDir/facts and write RBAC/LGPD machine artifacts if DB model is available",
     });
     return;
   }
@@ -239,6 +395,7 @@ async function runRender(
 }
 
 export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
+  const usageBefore = await summarizeUsage();
   const gates = opts.gates ?? "schema,coverage,evidence,build,traceability";
   const dryRun = opts.dryRun ?? opts.engine.flags.dryRun;
   const debug = opts.debug ?? opts.engine.flags.debug;
@@ -249,6 +406,7 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
     emitEngineEvent({ stage, profile: opts.profile, ...event }, opts.onEvent);
 
   emit({ type: "stage-start", data: { gates, dryRun } });
+  console.log(`[redox][stage] ${stage}`);
 
   if (stage === "check") {
     const root = opts.engine.root;
@@ -387,7 +545,7 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
           (err as Error).message ?? `Schema gate failed: ${String(err)}`;
         console.error("[redox][gate] schema failed:", message);
         console.error(
-          "[redox][hint] Check JSON artifacts in .redox/ against the schemas in src/schemas/ (ApiMap, Routes, CoverageMatrix, etc.).",
+          "[redox][hint] Check JSON artifacts in facts/ against the schemas in src/schemas/ (ApiMap, Routes, CoverageMatrix, etc.).",
         );
         failedGates.push({ gate: "schema", error: err as Error });
         emit({ type: "gate-end", gate: "schema", success: false });
@@ -559,18 +717,21 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
       type: "stage-end",
       success: failedGates.length === 0,
     });
+    await logUsageDelta(stage, usageBefore);
     return;
   }
 
   if (stage === "extract") {
     await runExtract(opts.engine, dryRun, logEnabled);
     emit({ type: "stage-end", success: true });
+    await logUsageDelta(stage, usageBefore);
     return;
   }
 
   if (stage === "render") {
     await runRender(opts.engine, dryRun, logEnabled);
     emit({ type: "stage-end", success: true });
+    await logUsageDelta(stage, usageBefore);
     return;
   }
 
@@ -614,6 +775,7 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
       await writeAuditDocsLLM(opts.engine, facts, { dryRun, debug });
     }
     emit({ type: "stage-end", success: true });
+    await logUsageDelta(stage, usageBefore);
     return;
   }
 
@@ -653,12 +815,7 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
     return;
   }
 
-  if (
-    stage === "dev" ||
-    stage === "user" ||
-    stage === "audit" ||
-    stage === "all"
-  ) {
+  if (stage === "dev" || stage === "user" || stage === "audit") {
     const resume = !!opts.resume;
     let shouldExtract = true;
     let shouldSynthesize = true;
@@ -701,7 +858,7 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
     if (shouldSynthesize) {
       await orchestrate("synthesize", {
         ...opts,
-        profile: stage === "all" ? "all" : stage,
+        profile: stage,
       });
     }
     if (shouldRender) {
@@ -709,5 +866,18 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
     }
     await orchestrate("check", opts);
     emit({ type: "stage-end", success: true });
+    await logUsageDelta(stage, usageBefore);
+    return;
+  }
+
+  if (stage === "all") {
+    await orchestrate("extract", opts);
+    await orchestrate("synthesize", { ...opts, profile: "dev" });
+    await orchestrate("synthesize", { ...opts, profile: "user" });
+    await orchestrate("synthesize", { ...opts, profile: "audit" });
+    await orchestrate("render", opts);
+    await orchestrate("check", opts);
+    emit({ type: "stage-end", success: true });
+    await logUsageDelta(stage, usageBefore);
   }
 }

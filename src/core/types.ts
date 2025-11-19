@@ -31,6 +31,26 @@ export type ApiEndpoint = {
   path: string;
   summary?: string;
   controller: ApiControllerRef;
+  auth?: {
+    required?: boolean;
+    guards?: string[];
+    schemes?: string[];
+    roles?: string[];
+  };
+  params?: {
+    name: string;
+    in: "path" | "query" | "header" | "cookie" | "body";
+    required?: boolean;
+    type?: string;
+  }[];
+  responses?: {
+    status: number;
+    contentTypes?: string[];
+    payload?: {
+      summary?: string;
+      jsonSchema?: Record<string, unknown>;
+    };
+  }[];
   source?: "openapi" | "routes" | "inferred";
   evidence: Evidence[];
 };

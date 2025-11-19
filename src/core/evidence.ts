@@ -16,7 +16,7 @@ export function sha256(content: string) {
 }
 
 function getEvidenceDir() {
-  return process.env.REDOX_EVIDENCE_DIR || path.join("redox", ".redox");
+  return process.env.REDOX_EVIDENCE_DIR || path.join("redox", "facts");
 }
 
 export async function saveEvidence(e: Evidence) {

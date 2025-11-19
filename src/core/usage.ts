@@ -31,7 +31,7 @@ export function getRunId(): string {
 export async function recordUsage(
   entry: Omit<UsageEntry, "timestamp" | "runId">,
 ) {
-  const baseDir = process.env.REDOX_USAGE_DIR || path.join("redox", ".redox");
+  const baseDir = process.env.REDOX_USAGE_DIR || path.join("redox", "facts");
   const dir = baseDir;
   const file = path.join(dir, "usage.jsonl");
   const full: UsageEntry = {
@@ -44,7 +44,7 @@ export async function recordUsage(
 }
 
 export async function readUsageEntries(): Promise<UsageEntry[]> {
-  const baseDir = process.env.REDOX_USAGE_DIR || path.join("redox", ".redox");
+  const baseDir = process.env.REDOX_USAGE_DIR || path.join("redox", "facts");
   const file = path.join(baseDir, "usage.jsonl");
   if (!(await fs.pathExists(file))) return [];
   const raw = await fs.readFile(file, "utf8");

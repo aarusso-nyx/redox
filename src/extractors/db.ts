@@ -1,5 +1,9 @@
 import { execa } from "execa";
 import fs from "fs-extra";
+import path from "node:path";
+import fg from "fast-glob";
+import dotenv from "dotenv";
+import { sha256 } from "../core/evidence.js";
 
 export type DbModel = {
   tables: {
@@ -10,7 +14,9 @@ export type DbModel = {
       type: string;
       nullable: boolean;
       default?: string;
+      evidence?: EvidenceRef[];
     }[];
+    evidence?: EvidenceRef[];
   }[];
   fks: {
     from: { schema: string; table: string; columns: string[] };
@@ -27,6 +33,15 @@ export type DbModel = {
     primary: boolean;
   }[];
   sqlDump?: string;
+  dialect?: "postgres" | "mysql" | "sqlite" | "unknown";
+  source?: "catalog" | "migrations" | "unknown";
+};
+
+type EvidenceRef = {
+  path: string;
+  startLine: number;
+  endLine: number;
+  sha256?: string;
 };
 
 const actionMap: Record<string, string> = {
@@ -37,13 +52,64 @@ const actionMap: Record<string, string> = {
   r: "RESTRICT",
 };
 
-export async function connectByEnv(): Promise<any> {
-  const url = process.env.DATABASE_URL;
+export function hydrateEnvFromFile(root = "."): string[] {
+  const envPath = path.join(root, ".env");
+  const hydrated: string[] = [];
+  try {
+    const raw = fs.readFileSync(envPath, "utf8");
+    const parsed = dotenv.parse(raw);
+    for (const [key, value] of Object.entries(parsed)) {
+      if (!process.env[key]) {
+        process.env[key] = value;
+        hydrated.push(key);
+      }
+    }
+  } catch {
+    // no .env found; ignore
+  }
+  return hydrated;
+}
+
+function detectDialect(url?: string, driver?: string) {
+  const lowered = `${url ?? ""} ${driver ?? ""}`.toLowerCase();
+  if (lowered.includes("postgres") || lowered.includes("pgsql"))
+    return "postgres";
+  if (lowered.includes("mysql")) return "mysql";
+  if (lowered.includes("sqlite")) return "sqlite";
+  return "unknown";
+}
+
+function buildPgUrlFromEnv(env: Record<string, string | undefined>) {
+  const db =
+    env.DATABASE_URL ??
+    env.PGURL ??
+    (env.DB_CONNECTION?.startsWith("pgsql") || env.DB_CONNECTION === "postgres"
+      ? `postgresql://${env.DB_USER ?? env.PGUSER ?? "postgres"}:${env.DB_PASSWORD ?? env.PGPASSWORD ?? ""}@${
+          env.DB_HOST ?? env.PGHOST ?? "localhost"
+        }:${env.DB_PORT ?? env.PGPORT ?? "5432"}/${env.DB_DATABASE ?? env.PGDATABASE ?? ""}`
+      : undefined);
+  return db;
+}
+
+export async function connectByEnv(
+  root = ".",
+): Promise<{ client: any; hydrated: string[] }> {
+  const hydrated = hydrateEnvFromFile(root);
+  const url = buildPgUrlFromEnv(process.env);
+  const dialect = detectDialect(url, process.env.DB_CONNECTION);
+  if (dialect && dialect !== "postgres") {
+    throw new Error(
+      `Unsupported dialect for catalog introspection: ${dialect}`,
+    );
+  }
   if (!url) throw new Error("DATABASE_URL not set");
   const { Client } = await import("pg");
   const client = new Client({ connectionString: url });
   await client.connect();
-  return client;
+  if (process.env.DB_DATABASE && !process.env.PGDATABASE) {
+    process.env.PGDATABASE = process.env.DB_DATABASE;
+  }
+  return { client, hydrated };
 }
 
 export async function introspect(client: any): Promise<DbModel> {
@@ -143,10 +209,110 @@ export async function introspect(client: any): Promise<DbModel> {
     primary: r.primary,
   }));
 
-  return { tables: [...tableMap.values()], fks: fkList, indexes: idxList };
+  return {
+    tables: [...tableMap.values()],
+    fks: fkList,
+    indexes: idxList,
+    dialect: "postgres",
+    source: "catalog",
+  };
+}
+
+function mapLaravelColumnType(method: string) {
+  const map: Record<string, string> = {
+    string: "varchar",
+    varchar: "varchar",
+    text: "text",
+    integer: "integer",
+    bigInteger: "bigint",
+    unsignedBigInteger: "bigint",
+    uuid: "uuid",
+    boolean: "boolean",
+    dateTime: "timestamp",
+    timestamp: "timestamp",
+    json: "json",
+    jsonb: "jsonb",
+    decimal: "decimal",
+    float: "float",
+  };
+  return map[method] ?? method;
+}
+
+function lineNumberOf(text: string, index: number) {
+  return text.slice(0, index).split(/\r?\n/).length;
+}
+
+async function modelFromLaravelMigrations(root = "."): Promise<DbModel | null> {
+  const files = await fg("database/migrations/*.php", { cwd: root });
+  if (!files.length) return null;
+
+  const tables: DbModel["tables"] = [];
+  for (const rel of files) {
+    const f = rel;
+    const fullPath = path.join(root, f);
+    const content = await fs.readFile(fullPath, "utf8");
+    const fileHash = sha256(content);
+
+    const createRe =
+      /Schema::create\(\s*['"]([^'"]+)['"][^,]*,\s*function\s*\([^)]*\)\s*\{([\s\S]*?)\}\s*\)\s*;/g;
+    let m: RegExpExecArray | null;
+    while ((m = createRe.exec(content))) {
+      const [, tableName, body] = m;
+      const startLine = lineNumberOf(content, m.index);
+      const cols: DbModel["tables"][number]["columns"] = [];
+      const colRe =
+        /\$table->([A-Za-z_][A-Za-z0-9_]*)\(\s*['"]([^'"]+)['"][^)]*\)([^;]*);/g;
+      let cm: RegExpExecArray | null;
+      while ((cm = colRe.exec(body))) {
+        const method = cm[1];
+        const colName = cm[2];
+        const tail = cm[3] ?? "";
+        const nullable = /nullable/i.test(tail);
+        const colStart = lineNumberOf(content, m.index + cm.index);
+        cols.push({
+          name: colName,
+          type: mapLaravelColumnType(method),
+          nullable,
+          evidence: [
+            {
+              path: f,
+              startLine: colStart,
+              endLine: colStart,
+              sha256: fileHash,
+            },
+          ],
+        });
+      }
+
+      tables.push({
+        schema: "public",
+        name: tableName,
+        columns: cols,
+        evidence: [
+          {
+            path: f,
+            startLine,
+            endLine: startLine,
+            sha256: fileHash,
+          },
+        ],
+      });
+    }
+  }
+
+  if (!tables.length) return null;
+
+  return {
+    tables,
+    fks: [],
+    indexes: [],
+    dialect: detectDialect(process.env.DB_CONNECTION ?? ""),
+    source: "migrations",
+  };
 }
 
 export async function buildDDLFromMigrations(root = ".", outDir = ".") {
+  hydrateEnvFromFile(root);
   // Run Laravel migrations if a Laravel app is present
   if (await fs.pathExists(`${root}/artisan`)) {
     try {
@@ -158,7 +324,7 @@ export async function buildDDLFromMigrations(root = ".", outDir = ".") {
 
   // If Postgres is available, dump schema
   try {
-    const dbName = process.env.PGDATABASE ?? "";
+    const dbName = process.env.PGDATABASE ?? process.env.DB_DATABASE ?? "";
     const { stdout } = await execa("pg_dump", ["--schema-only", dbName], {
       cwd: root,
     });
@@ -167,4 +333,16 @@ export async function buildDDLFromMigrations(root = ".", outDir = ".") {
   } catch {
     // pg_dump not available or failed; caller can proceed with DbModel only
   }
+}
+
+export async function buildDbModelFallback(root = ".") {
+  const laravel = await modelFromLaravelMigrations(root);
+  if (laravel) return laravel;
+  return {
+    tables: [],
+    fks: [],
+    indexes: [],
+    dialect: detectDialect(process.env.DB_CONNECTION ?? ""),
+    source: "unknown",
+  } satisfies DbModel;
 }

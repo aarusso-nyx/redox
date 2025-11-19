@@ -6,6 +6,7 @@ import { buildLgpdMap } from "./lgpdBuilder.js";
 import { buildStackProfile } from "./stackProfile.js";
 import { buildDepGraph } from "./depGraphBuilder.js";
 import { buildCoverageMatrix } from "./coverageBuilder.js";
+import { buildUseCaseSkeleton } from "./useCaseBuilder.js";
 
 export async function runArtifactBuilders(
   stage: string,
@@ -19,6 +20,8 @@ export async function runArtifactBuilders(
     await buildStackProfile(engine, { dryRun, debug });
     // TS/JS dependency graph + summary doc
     await buildDepGraph(engine, { dryRun, debug });
+    // Seed use-cases from available routes/endpoints
+    await buildUseCaseSkeleton(engine, { dryRun, debug });
   }
 
   if (stage === "render") {

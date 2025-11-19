@@ -12,7 +12,7 @@ export type Idea = {
 };
 
 function getIdeaDir() {
-  return process.env.REDOX_IDEA_DIR || path.join("redox", ".redox");
+  return process.env.REDOX_IDEA_DIR || path.join("redox", "facts");
 }
 
 export async function saveIdea(idea: Omit<Idea, "timestamp">): Promise<void> {

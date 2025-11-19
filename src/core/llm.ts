@@ -77,8 +77,7 @@ export async function askLLM(prompt: string, opts: LLMOpts) {
     // to 10k to avoid unbounded responses.
     const cap = 10_000;
     if (typeof maxOutputTokens === "number") {
-      body.max_output_tokens =
-        maxOutputTokens > cap ? cap : maxOutputTokens;
+      body.max_output_tokens = maxOutputTokens > cap ? cap : maxOutputTokens;
     } else {
       body.max_output_tokens = cap;
     }

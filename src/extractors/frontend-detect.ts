@@ -13,7 +13,16 @@ export async function detectFrontend(root = "."): Promise<FrontendMode> {
   try {
     const pkgRaw = await fs.readFile(`${root}/package.json`, "utf8");
     const pkg = JSON.parse(pkgRaw) as any;
-    react ||= !!(pkg.dependencies?.react || pkg.devDependencies?.react);
+    const deps = {
+      ...(pkg.dependencies ?? {}),
+      ...(pkg.devDependencies ?? {}),
+    };
+    react ||= !!(
+      deps.react ||
+      deps["react-router-dom"] ||
+      deps.next ||
+      deps["@remix-run/react"]
+    );
   } catch {
     // ignore missing package.json
   }
@@ -22,7 +31,18 @@ export async function detectFrontend(root = "."): Promise<FrontendMode> {
     ["src/**/*.routing.{ts,tsx}", "src/app/**/*.module.ts"],
     { cwd: root },
   );
-  const angular = angularFiles.length > 0;
+  let angular = angularFiles.length > 0;
+  try {
+    const pkgRaw = await fs.readFile(`${root}/package.json`, "utf8");
+    const pkg = JSON.parse(pkgRaw) as any;
+    const deps = {
+      ...(pkg.dependencies ?? {}),
+      ...(pkg.devDependencies ?? {}),
+    };
+    angular ||= !!deps["@angular/core"];
+  } catch {
+    // ignore
+  }
 
   const modes = [
     blade && "blade",

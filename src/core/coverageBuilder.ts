@@ -126,6 +126,43 @@ export async function buildCoverageMatrix(engine: EngineContext) {
     if (link.endpointId) unmappedEndpoints.delete(link.endpointId);
   }
 
+  // Auto-seed inferred links when routes/endpoints exist but mappings are empty.
+  const inferId = "auto:coverage";
+  if (!triads.length && routesArr.length && endpointsArr.length) {
+    const normalizeRoute = (id: string) =>
+      id
+        .replace(/^react:/, "")
+        .replace(/^angular:/, "")
+        .replace(/^blade:/, "")
+        .replace(/^\//, "");
+    const normalizeEndpoint = (id: string) =>
+      id.replace(/^[A-Z]+\s+/, "").replace(/^\//, "");
+
+    for (const routeId of routesArr) {
+      const routeNorm = normalizeRoute(routeId);
+      const match = endpointsArr.find((ep) => {
+        const epNorm = normalizeEndpoint(ep);
+        return epNorm === routeNorm || epNorm.startsWith(routeNorm);
+      });
+      if (match) {
+        triads.push({
+          routeId,
+          endpointId: match,
+          useCaseId: inferId,
+          inferred: true,
+        });
+        unmappedRoutes.delete(routeId);
+        unmappedEndpoints.delete(match);
+      }
+    }
+    if (triads.some((t) => t.useCaseId === inferId)) {
+      useCasesSummary.push({
+        id: inferId,
+        title: "Auto-seeded coverage links",
+      });
+    }
+  }
+
   const coverage: CoverageMatrix = {
     schemaVersion: "1.0",
     generatedAt: now,

@@ -4,7 +4,7 @@ export async function printUsageReport() {
   const summary = await summarizeUsage();
   if (!summary.entries) {
     console.log(
-      "No usage data recorded yet (.redox/usage.jsonl is empty or missing).",
+      "No usage data recorded yet (facts/usage.jsonl is empty or missing).",
     );
     return;
   }

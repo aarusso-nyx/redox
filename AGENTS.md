@@ -75,7 +75,7 @@ src/
   schemas/        # JSON schemas for structured outputs
 docs/
   scripts/        # render-mermaid.sh, link-check
-.redox/          # evidence.jsonl, caches, state
+.facts/          # evidence.jsonl, caches, state
 
 	•	Docs inventory (natural names): Repository Guidelines, Overview, Software Stack, Architecture Guide, Database Reference, ERD.mmd/ERD.png, API Map, Frontend Routes Map, Build/CI/Deploy Guide, Onboarding Quickstart, Development Styleguide, Test Strategy, User Guide, Feature Catalog, Troubleshooting Guide, Glossary, Function Point Report, RBAC Matrix, Security Threat Model, Observability Guide, Runbooks, Disaster Recovery, Compliance (LGPD), Integration Catalog, Performance Benchmarks, SBOM, Configuration Reference. The outlines for overview/stack, DB/ERD, architecture, use‑cases, FR/NFR, CI/deploy, user manual, and FP are based on the corresponding phase briefs.
 
@@ -98,7 +98,7 @@ For repository guidelines of target apps (e.g., Laravel/Filament/Postgres), we k
 	•	Models: Maestro = reasoning‑optimized; code tasks = code‑optimized; prose = general model. Low temperature: extract 0.1, tabulate 0.0, prose 0.3.
 	•	Evidence‑first prompts: every worker is constrained to cite file paths and, where feasible, line spans.
 	•	Cost control: bounded token budgets per stage; caches for stable extracts; schema‑constrained retries only.
-	•	Privacy: redact secrets; never send .env, credentials, or .redox/evidence.jsonl raw content to external models.
+	•	Privacy: redact secrets; never send .env, credentials, or facts/evidence.jsonl raw content to external models.
 
 ⸻
 

@@ -41,12 +41,12 @@ export async function detectAndLoadContext(opts: any): Promise<{
     : path.join(root, "redox");
   const diagramsDir = path.join(docsDir, "diagrams");
   const scriptsDir = path.join(docsDir, "scripts");
-  const evidenceDir = path.join(docsDir, ".redox");
+  const evidenceDir = path.join(docsDir, "facts");
 
   const files = await fg(["**/*"], {
     cwd: root,
     dot: true,
-    ignore: ["node_modules/**", "dist/**", ".redox/**"],
+    ignore: ["node_modules/**", "dist/**", "facts/**"],
   });
 
   const hasNode = files.includes("package.json");

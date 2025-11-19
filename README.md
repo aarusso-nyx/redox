@@ -13,7 +13,7 @@ Docs are evidence‑driven: every statement is meant to be traceable back to cod
 
 ## Machine artifacts and gates
 
-Redox emits a set of machine‑readable JSON artifacts under the run output directory (by default `<project>/redox/.redox`). The main ones are:
+Redox emits a set of machine‑readable JSON artifacts under the run output directory (by default `<project>/redox/facts`). The main ones are:
 
 - `api-map.json` — normalized backend endpoints (Laravel and NestJS) with controller locations and evidence.
 - `routes-*.json` — frontend route inventories for React/Angular, used to link UI routes ↔ use cases ↔ endpoints.
@@ -30,7 +30,7 @@ When you run `redox check`, gates interpret these artifacts as follows:
 - **Schema gate** validates `api-map.json`, any `routes-*.json`, `use-cases.json`, `coverage-matrix.json`, `fp-appendix.json`, and `rbac.json` against the JSON Schemas in `src/schemas/`.
 - **Coverage gate** ensures every route/endpoint in `coverage-matrix.json` participates in at least one Route ↔ Endpoint ↔ Use‑Case triad.
 - **Traceability gate** cross‑checks the coverage matrix stats and unmapped items; it fails if any routes/endpoints remain unmapped.
-- **Evidence gate** verifies that machine‑generated statements have supporting evidence entries in `.redox/evidence.jsonl`.
+- **Evidence gate** verifies that machine‑generated statements have supporting evidence entries in `facts/evidence.jsonl`.
 - **Build gate** checks DB/ERD artifacts can be rendered (DDL/ERD sanity).
 - **RBAC gate** inspects `rbac.json` bindings for evidence‑backed role/permission mappings (only runs once non‑empty bindings exist).
 - **LGPD gate** inspects `lgpd-map.json` and fails if any mapped fields are missing `legalBasis` or `retention` once you start filling them in.
@@ -55,7 +55,7 @@ In practice:
   - JSON‑context injection (routes, DB model, frontend structure) into each prompt.
 - **Gates and evidence**:
   - JSON‑schema gate, coverage gate (routes/endpoints ↔ use‑cases), and room for RBAC/compliance gates.
-  - Evidence ledger `.redox/evidence.jsonl` with path + line span + SHA hashes (tool wiring ready).
+  - Evidence ledger `facts/evidence.jsonl` with path + line span + SHA hashes (tool wiring ready).
 - **Extensible architecture**:
   - Orchestrator (“Maestro”) layers scripted extraction with LLM writers and acceptance gates.
   - Stack adapters (planned) to plug in detectors, custom extractors, and prompt overlays per stack.
@@ -143,7 +143,7 @@ npx redox dev --out docs/generated
 npx redox all --stack nestjs-postgres-react --no-detect
 
 # Extract facts only (for inspection or custom pipelines)
-npx redox extract --out .redox-facts
+npx redox extract --out facts-dir
 ```
 
 ---
@@ -209,28 +209,28 @@ Diagrams and scripts:
 
 Evidence and machine artifacts:
 
-- `redox/.redox/evidence.jsonl` — Evidence ledger (path, line span, SHA, note/tag).
-- Additional JSON inventories (routes, use‑cases, coverage matrices) live under `redox/.redox/` as the engine evolves.
+- `redox/facts/evidence.jsonl` — Evidence ledger (path, line span, SHA, note/tag).
+- Additional JSON inventories (routes, use‑cases, coverage matrices) live under `redox/facts/` as the engine evolves.
 
 ---
 
 ## Machine Artifacts & Gates
 
-Redox writes machine‑readable artifacts under `redox/.redox/` that power gates and downstream tooling:
+Redox writes machine‑readable artifacts under `redox/facts/` that power gates and downstream tooling:
 
-- `redox/.redox/api-map.json`
+- `redox/facts/api-map.json`
   - Shape: API Map (`ApiMap.schema.json`).
   - Fields: `endpoints[]` with HTTP method/path, controller refs, and evidence; optional `stack` and `sourceRepo`.
   - Gates:
     - (planned) `schema` — validate against `ApiMap.schema.json`.
 
-- `redox/.redox/routes-*.json`
+- `redox/facts/routes-*.json`
   - Shape: Frontend routes inventories (`Routes.schema.json`) per framework (e.g., `routes-react.json`, `routes-angular.json`).
   - Fields: `framework`, `routes[]` with ids, paths, component refs, and evidence.
   - Gates:
     - (planned) `schema` — validate against `Routes.schema.json`.
 
-- `redox/.redox/coverage-matrix.json`
+- `redox/facts/coverage-matrix.json`
   - Shape: Coverage Matrix (`CoverageMatrix.schema.json`).
   - Fields: `routes[]`, `endpoints[]`, `useCases[]`, `links[]` (route↔endpoint↔use‑case triads), `unmapped.routes`, `unmapped.endpoints`, optional `stats`.
   - Gates:
@@ -238,25 +238,25 @@ Redox writes machine‑readable artifacts under `redox/.redox/` that power gates
     - `coverage` — ensures every route/endpoint is covered by ≥1 link.
     - `traceability` — ensures `unmapped` sets are empty and `stats` match counts.
 
-- `redox/.redox/rbac.json`
+- `redox/facts/rbac.json`
   - Shape: RBAC Matrix (`Rbac.schema.json`).
   - Fields: `roles[]`, `permissions[]`, `roleBindings[]`, `bindings` (endpoint/route/entity bindings), `unmapped`, `stats`.
   - Gates:
     - `schema` — validated against `Rbac.schema.json`.
     - `rbac` — checks there is at least one role↔permission binding and that each binding has evidence.
 
-- `redox/.redox/lgpd-map.json`
+- `redox/facts/lgpd-map.json`
   - Shape: array of `{ field, table, legalBasis, retention, ... }`.
   - Gates:
     - `lgpd` — ensures every entry has a `legalBasis` and `retention` value.
 
-- `redox/.redox/fp-appendix.json`
+- `redox/facts/fp-appendix.json`
   - Shape: FP Appendix (`Fp.schema.json`).
   - Fields: `items[]` (EI/EO/EQ/ILF/EIF entries with evidence), `gsc[]` (14 General System Characteristics), `ufp`, `vaf`, `afp`, `sensitivity`.
   - Gates:
     - `schema` — validated against `Fp.schema.json`.
 
-- `redox/.redox/evidence.jsonl`
+- `redox/facts/evidence.jsonl`
   - Shape: one JSON `Evidence` object per line: `{ path, startLine, endLine, sha256?, note?, tag? }`.
   - Gates:
     - `evidence` — recomputes hashes for the referenced line spans and fails on mismatches or missing files.

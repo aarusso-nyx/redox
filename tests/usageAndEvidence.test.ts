@@ -12,7 +12,7 @@ describe("usage tracking", () => {
         (fsExtra as any).existsSync ? (fsExtra as any).existsSync(p) : false;
     }
     const tmp = path.join(process.cwd(), ".tmp-usage-test");
-    const usageDir = path.join(tmp, ".redox");
+    const usageDir = path.join(tmp, "facts");
     process.env.REDOX_USAGE_DIR = usageDir;
     await fs.remove(tmp);
 
@@ -45,7 +45,7 @@ describe("usage tracking", () => {
 describe("evidence ledger", () => {
   it("writes evidence entries with sha256 hashes", async () => {
     const tmp = path.join(process.cwd(), ".tmp-evidence-test");
-    const evDir = path.join(tmp, ".redox");
+    const evDir = path.join(tmp, "facts");
     process.env.REDOX_EVIDENCE_DIR = evDir;
     await fs.remove(tmp);
 

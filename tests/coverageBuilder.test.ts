@@ -4,6 +4,7 @@ import path from "node:path";
 import { buildCoverageMatrix } from "../src/core/coverageBuilder.js";
 import fsExtra from "fs-extra";
 import type { EngineContext } from "../src/core/context.js";
+import { buildUseCaseSkeleton } from "../src/core/useCaseBuilder.js";
 
 function makeEngine(evidenceDir: string): EngineContext {
   return {
@@ -36,7 +37,7 @@ describe("buildCoverageMatrix", () => {
         (fsExtra as any).existsSync ? (fsExtra as any).existsSync(p) : false;
     }
     const tmpDir = path.join(process.cwd(), ".tmp-coverage-test");
-    const evidenceDir = path.join(tmpDir, ".redox");
+    const evidenceDir = path.join(tmpDir, "facts");
     await fs.remove(tmpDir);
     await fs.ensureDir(evidenceDir);
 
@@ -117,6 +118,35 @@ describe("buildCoverageMatrix", () => {
     expect(matrix.stats.endpointCount).toBe(matrix.endpoints.length);
     expect(matrix.stats.useCaseCount).toBe(matrix.useCases.length);
     expect(matrix.stats.linkCount).toBe(matrix.links.length);
+
+    await fs.remove(tmpDir);
+  });
+
+  it("builds use-cases skeleton when none exists", async () => {
+    // Ensure fs-extra has a pathExists helper in this test environment
+    if (!(fsExtra as any).pathExists) {
+      (fsExtra as any).pathExists = async (p: string) =>
+        (fsExtra as any).existsSync ? (fsExtra as any).existsSync(p) : false;
+    }
+    const tmpDir = path.join(process.cwd(), ".tmp-usecases-test");
+    const evidenceDir = path.join(tmpDir, "facts");
+    await fs.remove(tmpDir);
+    await fs.ensureDir(evidenceDir);
+
+    const apiMap = {
+      schemaVersion: "1.0",
+      generatedAt: new Date().toISOString(),
+      endpoints: [{ id: "GET /health", method: "GET", path: "/health" }],
+    };
+    await fs.writeJson(path.join(evidenceDir, "api-map.json"), apiMap);
+
+    const engine = makeEngine(evidenceDir);
+    await buildUseCaseSkeleton(engine, { dryRun: false, debug: false });
+
+    const ucPath = path.join(evidenceDir, "use-cases.json");
+    const uc = await fs.readJson(ucPath);
+    expect(uc.cases.length).toBeGreaterThan(0);
+    expect(uc.roles.length).toBeGreaterThan(0);
 
     await fs.remove(tmpDir);
   });

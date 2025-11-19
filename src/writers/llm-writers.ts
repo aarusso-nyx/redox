@@ -431,7 +431,13 @@ export async function writeDevDocsLLM(
   opts: { dryRun: boolean; debug: boolean },
 ) {
   const session: LlmSession = {};
-  for (const phase of DEV_MD_PHASES) {
+  const total = DEV_MD_PHASES.length;
+  for (const [idx, phase] of DEV_MD_PHASES.entries()) {
+    console.log(
+      `[redox][synth] (dev ${idx + 1}/${total}) ${path.basename(
+        phase.outFile(ctx),
+      )}`,
+    );
     await runPhase(
       ctx,
       facts,
@@ -450,7 +456,13 @@ export async function writeUserDocsLLM(
   opts: { dryRun: boolean; debug: boolean },
 ) {
   const session: LlmSession = {};
-  for (const phase of USER_MD_PHASES) {
+  const totalMd = USER_MD_PHASES.length;
+  for (const [idx, phase] of USER_MD_PHASES.entries()) {
+    console.log(
+      `[redox][synth] (user ${idx + 1}/${totalMd}) ${path.basename(
+        phase.outFile(ctx),
+      )}`,
+    );
     await runPhase(
       ctx,
       facts,
@@ -462,7 +474,13 @@ export async function writeUserDocsLLM(
     );
   }
 
-  for (const phase of USER_JSON_PHASES) {
+  const totalJson = USER_JSON_PHASES.length;
+  for (const [idx, phase] of USER_JSON_PHASES.entries()) {
+    console.log(
+      `[redox][synth] (user json ${idx + 1}/${totalJson}) ${path.basename(
+        phase.outFile(ctx),
+      )}`,
+    );
     await runJsonPhase(
       ctx,
       facts,
@@ -481,7 +499,13 @@ export async function writeAuditDocsLLM(
   opts: { dryRun: boolean; debug: boolean },
 ) {
   const session: LlmSession = {};
-  for (const phase of AUDIT_MD_PHASES) {
+  const totalMd = AUDIT_MD_PHASES.length;
+  for (const [idx, phase] of AUDIT_MD_PHASES.entries()) {
+    console.log(
+      `[redox][synth] (audit ${idx + 1}/${totalMd}) ${path.basename(
+        phase.outFile(ctx),
+      )}`,
+    );
     await runPhase(
       ctx,
       facts,
@@ -493,7 +517,13 @@ export async function writeAuditDocsLLM(
     );
   }
 
-  for (const phase of AUDIT_JSON_PHASES) {
+  const totalJson = AUDIT_JSON_PHASES.length;
+  for (const [idx, phase] of AUDIT_JSON_PHASES.entries()) {
+    console.log(
+      `[redox][synth] (audit json ${idx + 1}/${totalJson}) ${path.basename(
+        phase.outFile(ctx),
+      )}`,
+    );
     await runJsonPhase(
       ctx,
       facts,
