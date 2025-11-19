@@ -85,11 +85,12 @@ function extractRoutesFromArrayLiteral(
         const objInit = init.asKindOrThrow(SyntaxKind.ObjectLiteralExpression);
         route.resolvers = objInit
           .getProperties()
-          .map((p) =>
-            (p as any).getName?.() ??
-            (p as any).getText?.() ??
-            p.getFirstChildByKind?.(SyntaxKind.Identifier)?.getText?.() ??
-            "",
+          .map(
+            (p) =>
+              (p as any).getName?.() ??
+              (p as any).getText?.() ??
+              p.getFirstChildByKind?.(SyntaxKind.Identifier)?.getText?.() ??
+              "",
           )
           .filter(Boolean);
       }
@@ -102,11 +103,12 @@ function extractRoutesFromArrayLiteral(
         const objInit = init.asKindOrThrow(SyntaxKind.ObjectLiteralExpression);
         route.dataKeys = objInit
           .getProperties()
-          .map((p) =>
-            (p as any).getName?.() ??
-            (p as any).getText?.() ??
-            p.getFirstChildByKind?.(SyntaxKind.Identifier)?.getText?.() ??
-            "",
+          .map(
+            (p) =>
+              (p as any).getName?.() ??
+              (p as any).getText?.() ??
+              p.getFirstChildByKind?.(SyntaxKind.Identifier)?.getText?.() ??
+              "",
           )
           .filter(Boolean);
       }
