@@ -18,6 +18,8 @@ type BladeForm = {
 type BladeRelation = {
   view: string;
   route: string;
+  file: string;
+  line?: number;
 };
 
 export type BladeExtraction = {
@@ -57,7 +59,8 @@ export async function extractBlade(root = "."): Promise<BladeExtraction> {
       });
     }
     for (const rm of txt.matchAll(/route\(['"]([^'"]+)['"]\)/g)) {
-      data.relations.push({ view: name, route: rm[1] });
+      const line = lineOf(txt, rm.index ?? 0);
+      data.relations.push({ view: name, route: rm[1], file: f, line });
     }
   }
   return data;
@@ -66,4 +69,8 @@ export async function extractBlade(root = "."): Promise<BladeExtraction> {
 function match1(s: string, re: RegExp) {
   const m = s.match(re);
   return m ? m[1] : undefined;
+}
+
+function lineOf(txt: string, idx: number) {
+  return txt.slice(0, idx).split(/\r?\n/).length;
 }

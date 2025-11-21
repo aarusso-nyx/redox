@@ -238,30 +238,46 @@ async function runExtract(
     react: null as any,
     angular: null as any,
   };
-  if (!dryRun) {
-    if (frontendMode === "blade" || frontendMode === "mixed") {
-      logDebug(logEnabled, "Blade extraction", { root: engine.root });
-      frontendCache.blade = await extractBlade(engine.root).catch(() => null);
-      recordStep("Frontend:blade", frontendCache.blade ? "ok" : "fail");
-    }
-    if (frontendMode === "react" || frontendMode === "mixed") {
-      logDebug(logEnabled, "React routes extraction", { root: engine.root });
-      frontendCache.react = await extractReactRoutes(engine.root).catch(
-        (err) => {
-          recordStep(
-            "Frontend:react",
-            "fail",
-            (err as Error)?.message ?? String(err),
-          );
-          return null;
-        },
+
+  const runBlade = async () => {
+    logDebug(logEnabled, "Blade extraction", { root: engine.root });
+    frontendCache.blade = await extractBlade(engine.root).catch(() => null);
+    recordStep("Frontend:blade", frontendCache.blade ? "ok" : "fail");
+  };
+  const runReact = async () => {
+    logDebug(logEnabled, "React routes extraction", { root: engine.root });
+    frontendCache.react = await extractReactRoutes(engine.root).catch((err) => {
+      recordStep(
+        "Frontend:react",
+        "fail",
+        (err as Error)?.message ?? String(err),
       );
-      if (frontendCache.react) recordStep("Frontend:react", "ok");
-    }
-    if (frontendMode === "angular" || frontendMode === "mixed") {
-      logDebug(logEnabled, "Angular routes extraction", { root: engine.root });
-      frontendCache.angular = { routes: angularRoutes(engine.root) };
-      recordStep("Frontend:angular", "ok");
+      return null;
+    });
+    if (frontendCache.react) recordStep("Frontend:react", "ok");
+  };
+  const runAngular = async () => {
+    logDebug(logEnabled, "Angular routes extraction", { root: engine.root });
+    frontendCache.angular = { routes: angularRoutes(engine.root) };
+    recordStep("Frontend:angular", "ok");
+  };
+
+  if (!dryRun) {
+    switch (frontendMode) {
+      case "blade":
+        await runBlade();
+        break;
+      case "react":
+        await runReact();
+        break;
+      case "angular":
+        await runAngular();
+        break;
+      case "mixed":
+        await Promise.all([runBlade(), runReact(), runAngular()]);
+        break;
+      default:
+        break;
     }
   }
 

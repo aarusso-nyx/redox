@@ -11,9 +11,43 @@ export async function writeRoutesArtifacts(
   await fs.ensureDir(engine.evidenceDir);
   const now = new Date().toISOString();
 
+  const appendRoutes = async (
+    framework: string,
+    data: any[],
+    buildRoute: (r: any, idx: number) => FrontendRoute,
+  ) => {
+    if (!data.length) return;
+    const routes = data.map(buildRoute);
+    const byId = new Map(routes.map((r) => [r.id, r]));
+    for (const r of routes) {
+      if (r.parentId && byId.has(r.parentId)) {
+        const parent = byId.get(r.parentId)!;
+        parent.children = parent.children ?? [];
+        parent.children.push(r.id);
+      }
+    }
+    const doc: RoutesDoc = {
+      schemaVersion: "1.0",
+      generatedAt: now,
+      framework,
+      routes,
+    };
+    const fileName = `routes-${framework}.json`;
+    const out = path.join(engine.evidenceDir, fileName);
+    await fs.writeJson(out, doc, { spaces: 2 });
+    if (logEnabled) {
+      console.log("[redox][debug] Routes artifact written", {
+        framework,
+        path: out,
+        routes: routes.length,
+      });
+    }
+    return routes.length;
+  };
+
   const reactRoutes: any[] = frontend?.react?.routes ?? [];
   if (reactRoutes.length) {
-    const routes: FrontendRoute[] = reactRoutes.map((r: any, idx: number) => {
+    await appendRoutes("react", reactRoutes, (r: any, idx: number) => {
       const id =
         typeof r.id === "string" && r.id.startsWith("react:")
           ? r.id
@@ -52,33 +86,11 @@ export async function writeRoutesArtifacts(
         ],
       };
     });
-    const byId = new Map(routes.map((r) => [r.id, r]));
-    for (const r of routes) {
-      if (r.parentId && byId.has(r.parentId)) {
-        const parent = byId.get(r.parentId)!;
-        parent.children = parent.children ?? [];
-        parent.children.push(r.id);
-      }
-    }
-    const doc: RoutesDoc = {
-      schemaVersion: "1.0",
-      generatedAt: now,
-      framework: "react",
-      routes,
-    };
-    const out = path.join(engine.evidenceDir, "routes-react.json");
-    await fs.writeJson(out, doc, { spaces: 2 });
-    if (logEnabled) {
-      console.log("[redox][debug] Routes artifact written (react)", {
-        path: out,
-        routes: routes.length,
-      });
-    }
   }
 
   const angular: any[] = frontend?.angular?.routes ?? [];
   if (angular.length) {
-    const routes: FrontendRoute[] = angular.map((r: any, idx: number) => {
+    await appendRoutes("angular", angular, (r: any, idx: number) => {
       const id =
         typeof r.id === "string" && r.id.startsWith("angular:")
           ? r.id
@@ -119,27 +131,37 @@ export async function writeRoutesArtifacts(
         ],
       };
     });
-    const byId = new Map(routes.map((r) => [r.id, r]));
-    for (const r of routes) {
-      if (r.parentId && byId.has(r.parentId)) {
-        const parent = byId.get(r.parentId)!;
-        parent.children = parent.children ?? [];
-        parent.children.push(r.id);
-      }
-    }
-    const doc = {
-      schemaVersion: "1.0",
-      generatedAt: now,
-      framework: "angular",
-      routes,
-    };
-    const out = path.join(engine.evidenceDir, "routes-angular.json");
-    await fs.writeJson(out, doc, { spaces: 2 });
-    if (logEnabled) {
-      console.log("[redox][debug] Routes artifact written (angular)", {
-        path: out,
-        routes: routes.length,
-      });
-    }
+  }
+
+  // Blade view relations -> pseudo routes for coverage
+  const bladeViews: any[] = frontend?.blade?.relations ?? [];
+  if (bladeViews.length) {
+    const bladeRoutes = bladeViews.map((rel, idx) => ({
+      id: `blade:${rel.route ?? idx}`,
+      path: rel.route ?? rel.view ?? `view:${idx}`,
+      parentId: undefined,
+      children: [] as string[],
+      component: {
+        name: rel.view ?? "",
+        file: rel.file ?? "",
+        startLine: rel.line ?? 1,
+        endLine: rel.line ?? 1,
+      },
+      lazy: false,
+      guards: [] as string[],
+      resolvers: [] as string[],
+      params: [] as string[],
+      dataKeys: [] as string[],
+      roles: [] as string[],
+      apiCalls: [] as any[],
+      evidence: [
+        {
+          path: rel.file ?? "",
+          startLine: rel.line ?? 1,
+          endLine: rel.line ?? 1,
+        },
+      ],
+    }));
+    await appendRoutes("blade", bladeRoutes, (r) => r);
   }
 }
