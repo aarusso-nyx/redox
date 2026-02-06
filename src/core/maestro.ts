@@ -158,7 +158,7 @@ ${JSON.stringify(state, null, 2)}
     const profile = action.profile ?? opts.profile;
     const gates = action.gates ?? opts.gates;
 
-    console.log("[redox][maestro] run_stage", { stage, profile, gates });
+    console.log("maestro run_stage", { stage, profile, gates });
 
     await orchestrate(stage, {
       ...opts,

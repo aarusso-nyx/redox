@@ -103,7 +103,7 @@ export async function exportDocs(opts: ExportOptions) {
 
   if (!files.length) {
     if (debug) {
-      console.log("[redox][export] no files matched", {
+      console.log("export: no files matched", {
         srcDir: absSrc,
         include,
         exclude,
@@ -122,7 +122,7 @@ export async function exportDocs(opts: ExportOptions) {
     const markdown = await fs.readFile(inPath, "utf8");
 
     if (dryRun) {
-      console.log("[redox][export][dry-run]", {
+      console.log("export dry-run", {
         in: inPath,
         outDir: outDirForFile,
         formats,
@@ -147,7 +147,7 @@ export async function exportDocs(opts: ExportOptions) {
       if (fmt === "html") {
         const outHtml = path.join(outDirForFile, `${baseName}.html`);
         if (debug) {
-          console.log("[redox][export] write HTML", {
+          console.log("export write HTML", {
             in: inPath,
             out: outHtml,
           });
@@ -156,7 +156,7 @@ export async function exportDocs(opts: ExportOptions) {
       } else if (fmt === "pdf") {
         const outPdf = path.join(outDirForFile, `${baseName}.pdf`);
         if (debug) {
-          console.log("[redox][export] write PDF", { in: inPath, out: outPdf });
+          console.log("export write PDF", { in: inPath, out: outPdf });
         }
         await ensurePdfFromMarkdown(markdown, outPdf, absCss);
       } else if (fmt === "docx") {
@@ -166,13 +166,13 @@ export async function exportDocs(opts: ExportOptions) {
           args.push("--reference-doc", path.resolve(root, referenceDoc));
         }
         if (debug) {
-          console.log("[redox][export] pandoc docx", { cmd: "pandoc", args });
+          console.log("export pandoc docx", { cmd: "pandoc", args });
         }
         try {
           await execa("pandoc", args, { cwd: root });
         } catch (err: any) {
           console.error(
-            "[redox][export] pandoc failed for docx",
+            "export pandoc failed for docx",
             err?.shortMessage ?? err?.message ?? String(err),
           );
           throw err;

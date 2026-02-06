@@ -177,7 +177,7 @@ export async function writeApiMapArtifact(
   await fs.ensureDir(engine.evidenceDir);
   await fs.writeJson(outPath, apiMap, { spaces: 2 });
   if (logEnabled) {
-    console.log("[redox][debug] ApiMap artifact written", {
+    console.log("ApiMap artifact written", {
       path: outPath,
       endpointCount: apiMap.endpoints.length,
     });

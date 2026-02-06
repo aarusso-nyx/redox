@@ -35,6 +35,114 @@ type LlmSession = {
   previousResponseId?: string;
 };
 
+function fallbackMarkdown(outFile: string, facts: Facts): string {
+  const name = path.basename(outFile);
+  const endpoints =
+    (facts.apiMap?.endpoints?.map((e: any) => e.id).filter(Boolean) as string[]) ||
+    [];
+  const routes =
+    (facts.routes?.map((r: any) => r.uri ?? r.id ?? r.path).filter(Boolean) as string[]) ||
+    [];
+  const feRoutes: string[] = [];
+  if (facts.feRoutes?.react?.routes) {
+    feRoutes.push(
+      ...(facts.feRoutes.react.routes
+        .map((r: any) => r.id ?? r.path)
+        .filter(Boolean) as string[]),
+    );
+  }
+  if (facts.feRoutes?.angular?.routes) {
+    feRoutes.push(
+      ...(facts.feRoutes.angular.routes
+        .map((r: any) => r.id ?? r.path)
+        .filter(Boolean) as string[]),
+    );
+  }
+  const tables = Array.isArray(facts.dbModel?.tables)
+    ? facts.dbModel.tables.map((t: any) => `${t.schema ?? "public"}.${t.name ?? ""}`)
+    : [];
+
+  const counts = [
+    `- Tables: ${tables.length}`,
+    `- Backend endpoints: ${endpoints.length}`,
+    `- Backend routes: ${routes.length}`,
+    `- Frontend routes: ${feRoutes.length}`,
+  ].join("\n");
+
+  const listSection = (title: string, items: string[]) =>
+    items.length
+      ? `### ${title}\n${items.map((i) => `- ${i}`).join("\n")}\n`
+      : `### ${title}\n- Not detected\n`;
+
+  if (name === "Function Point Report.md") {
+    return `# Function Point Report
+
+${counts}
+
+## Inventory
+${listSection("Endpoints", endpoints)}
+${listSection("Routes", routes.concat(feRoutes))}
+${listSection("Data Tables", tables)}
+
+> Auto-generated fallback because the LLM returned empty content. Refine by rerunning with a database connection and full routes/use-cases artifacts.`;
+  }
+
+  if (name === "Performance Benchmarks.md") {
+    return `# Performance Benchmarks
+
+${counts}
+
+## Suggested Checks
+- Measure response times for key endpoints.
+- Profile database queries for the tables above.
+- Load test the most critical routes.
+
+${listSection("Endpoints to Benchmark", endpoints.slice(0, 20))}
+
+> Auto-generated fallback because the LLM returned empty content.`;
+  }
+
+  if (name === "Observability Guide.md") {
+    return `# Observability Guide
+
+${counts}
+
+## Logs
+- Ensure structured logging in backend routes/endpoints.
+- Centralize logs from services touching the tables above.
+
+## Metrics
+- Track request rate, error rate, latency for listed endpoints.
+- Database metrics: connections, slow queries on detected tables.
+
+## Traces
+- Trace user flows across routes/endpoints; include DB spans.
+
+> Auto-generated fallback because the LLM returned empty content.`;
+  }
+
+  if (name === "Runbooks.md") {
+    return `# Runbooks
+
+${counts}
+
+## Common Tasks
+- Restart backend service.
+- Run migrations and verify table counts.
+- Smoke-test key endpoints and routes.
+
+${listSection("Endpoints to Verify", endpoints.slice(0, 20))}
+
+> Auto-generated fallback because the LLM returned empty content.`;
+  }
+
+  return `# ${name}
+
+${counts}
+
+> Auto-generated fallback because the LLM returned empty content.`;
+}
+
 const DEV_MD_PHASES: MdPhaseConfig[] = [
   {
     promptFile: "agents-writer.md",
@@ -202,6 +310,8 @@ async function runPhase(
   systemRole: string,
   outFile: string,
   session: LlmSession,
+  profile: string,
+  totalCount: number | undefined,
   opts: { dryRun: boolean; debug: boolean },
 ) {
   const promptText = await loadPrompt(promptFile);
@@ -222,17 +332,33 @@ async function runPhase(
   )}\n</CONTEXT>`;
 
   if (opts.debug) {
-    console.log("[redox][debug] LLM phase", {
+    console.log("LLM phase", {
       promptFile,
       outFile,
       systemRole,
       dryRun: opts.dryRun,
     });
-    console.log("[redox][debug] LLM system prompt", systemRole);
-    console.log("[redox][debug] LLM user prompt", user);
+    console.log("LLM system prompt", systemRole);
+    console.log("LLM user prompt", user);
   }
 
+  emitEngineEvent({
+    type: "phase-start",
+    stage: "synthesize",
+    profile,
+    data: {
+      name: path.basename(outFile),
+      total: totalCount,
+    },
+  });
+
   if (opts.dryRun) {
+    emitEngineEvent({
+      type: "phase-end",
+      stage: "synthesize",
+      profile,
+      data: { name: path.basename(outFile) },
+    });
     return;
   }
 
@@ -265,8 +391,19 @@ async function runPhase(
     anyR.output?.[0]?.content?.[0]?.text ??
     JSON.stringify(anyR, null, 2);
 
+  const finalText =
+    typeof text === "string" && text.trim().length > 0
+      ? text
+      : fallbackMarkdown(outFile, facts);
+
   await fs.ensureDir(path.dirname(outFile));
-  await fs.writeFile(outFile, text, "utf8");
+  await fs.writeFile(outFile, finalText, "utf8");
+  emitEngineEvent({
+    type: "phase-end",
+    stage: "synthesize",
+    profile,
+    data: { name: path.basename(outFile) },
+  });
   emitEngineEvent({
     type: "doc-written",
     agent: promptFile,
@@ -274,7 +411,7 @@ async function runPhase(
     data: { bytes: text.length },
   });
   if (opts.debug) {
-    console.log("[redox][debug] LLM output written", {
+    console.log("LLM output written", {
       outFile,
       length: text.length,
     });
@@ -288,6 +425,8 @@ async function runJsonPhase(
   systemRole: string,
   outFile: string,
   session: LlmSession,
+  profile: string,
+  totalCount: number | undefined,
   opts: { dryRun: boolean; debug: boolean },
 ) {
   const promptText = await loadPrompt(promptFile);
@@ -316,16 +455,32 @@ ${JSON.stringify(
 </CONTEXT>`;
 
   if (opts.debug) {
-    console.log("[redox][debug] LLM JSON phase", {
+    console.log("LLM JSON phase", {
       promptFile,
       outFile,
       systemRole,
       dryRun: opts.dryRun,
     });
-    console.log("[redox][debug] LLM JSON user prompt", user);
+    console.log("LLM JSON user prompt", user);
   }
 
+  emitEngineEvent({
+    type: "phase-start",
+    stage: "synthesize",
+    profile,
+    data: {
+      name: path.basename(outFile),
+      total: totalCount,
+    },
+  });
+
   if (opts.dryRun) {
+    emitEngineEvent({
+      type: "phase-end",
+      stage: "synthesize",
+      profile,
+      data: { name: path.basename(outFile) },
+    });
     return;
   }
 
@@ -413,12 +568,18 @@ ${JSON.stringify(
   await fs.ensureDir(path.dirname(outFile));
   await fs.writeJson(outFile, json, { spaces: 2 });
   emitEngineEvent({
+    type: "phase-end",
+    stage: "synthesize",
+    profile,
+    data: { name: path.basename(outFile) },
+  });
+  emitEngineEvent({
     type: "artifact-written",
     agent: `${promptFile}:json`,
     file: outFile,
   });
   if (opts.debug) {
-    console.log("[redox][debug] LLM JSON output written", {
+    console.log("LLM JSON output written", {
       outFile,
       bytes: text.length,
     });
@@ -434,9 +595,7 @@ export async function writeDevDocsLLM(
   const total = DEV_MD_PHASES.length;
   for (const [idx, phase] of DEV_MD_PHASES.entries()) {
     console.log(
-      `[redox][synth] (dev ${idx + 1}/${total}) ${path.basename(
-        phase.outFile(ctx),
-      )}`,
+      `synth (dev ${idx + 1}/${total}) ${path.basename(phase.outFile(ctx))}`,
     );
     await runPhase(
       ctx,
@@ -445,6 +604,8 @@ export async function writeDevDocsLLM(
       phase.systemRole,
       phase.outFile(ctx),
       session,
+      "dev",
+      total,
       opts,
     );
   }
@@ -457,9 +618,11 @@ export async function writeUserDocsLLM(
 ) {
   const session: LlmSession = {};
   const totalMd = USER_MD_PHASES.length;
+  const totalJson = USER_JSON_PHASES.length;
+  const totalAll = totalMd + totalJson;
   for (const [idx, phase] of USER_MD_PHASES.entries()) {
     console.log(
-      `[redox][synth] (user ${idx + 1}/${totalMd}) ${path.basename(
+      `synth (user ${idx + 1}/${totalAll}) ${path.basename(
         phase.outFile(ctx),
       )}`,
     );
@@ -470,14 +633,15 @@ export async function writeUserDocsLLM(
       phase.systemRole,
       phase.outFile(ctx),
       session,
+      "user",
+      totalAll,
       opts,
     );
   }
 
-  const totalJson = USER_JSON_PHASES.length;
   for (const [idx, phase] of USER_JSON_PHASES.entries()) {
     console.log(
-      `[redox][synth] (user json ${idx + 1}/${totalJson}) ${path.basename(
+      `synth (user json ${idx + 1 + totalMd}/${totalAll}) ${path.basename(
         phase.outFile(ctx),
       )}`,
     );
@@ -488,6 +652,8 @@ export async function writeUserDocsLLM(
       phase.systemRole,
       phase.outFile(ctx),
       session,
+      "user",
+      totalAll,
       opts,
     );
   }
@@ -500,9 +666,11 @@ export async function writeAuditDocsLLM(
 ) {
   const session: LlmSession = {};
   const totalMd = AUDIT_MD_PHASES.length;
+  const totalJson = AUDIT_JSON_PHASES.length;
+  const totalAll = totalMd + totalJson;
   for (const [idx, phase] of AUDIT_MD_PHASES.entries()) {
     console.log(
-      `[redox][synth] (audit ${idx + 1}/${totalMd}) ${path.basename(
+      `synth (audit ${idx + 1}/${totalAll}) ${path.basename(
         phase.outFile(ctx),
       )}`,
     );
@@ -513,14 +681,15 @@ export async function writeAuditDocsLLM(
       phase.systemRole,
       phase.outFile(ctx),
       session,
+      "audit",
+      totalAll,
       opts,
     );
   }
 
-  const totalJson = AUDIT_JSON_PHASES.length;
   for (const [idx, phase] of AUDIT_JSON_PHASES.entries()) {
     console.log(
-      `[redox][synth] (audit json ${idx + 1}/${totalJson}) ${path.basename(
+      `synth (audit json ${idx + 1 + totalMd}/${totalAll}) ${path.basename(
         phase.outFile(ctx),
       )}`,
     );
@@ -531,6 +700,8 @@ export async function writeAuditDocsLLM(
       phase.systemRole,
       phase.outFile(ctx),
       session,
+      "audit",
+      totalAll,
       opts,
     );
   }

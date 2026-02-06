@@ -1,4 +1,5 @@
 import fs from "fs-extra";
+import path from "node:path";
 import ora from "ora";
 import { detectAndLoadContext } from "../core/context.js";
 import { checkEnvironment } from "../core/env.js";
@@ -7,11 +8,40 @@ import { runMaestro } from "../core/maestro.js";
 import { translateDocs } from "../core/translation.js";
 import { exportDocs } from "../core/exportDocs.js";
 import { setEngineEventListener, type EngineEvent } from "../core/events.js";
+import {
+  ProgressReporter,
+  type ProgressMode,
+  progressModeFromOpts,
+} from "./progress.js";
 
 type Opts = Record<string, any>;
 
+function resolveVerbosity(rawOpts: Opts, _progressMode: ProgressMode) {
+  const mapLevel = (v: string) => {
+    const val = v.toLowerCase();
+    if (["0", "quiet", "silent"].includes(val)) return "quiet";
+    if (["1", "normal", "default"].includes(val)) return "normal";
+    if (["2", "verbose", "info"].includes(val)) return "verbose";
+    if (["3", "debug", "trace"].includes(val)) return "debug";
+    return null;
+  };
+
+  const levelFromOpt = mapLevel(String(rawOpts.verbosity ?? "normal"));
+
+  let level = levelFromOpt ?? "normal";
+  if (rawOpts.debug) level = "debug";
+  else if (rawOpts.verbose) level = "verbose";
+  else if (rawOpts.quiet) level = "quiet";
+
+  const quiet = level === "quiet";
+  const debug = level === "debug";
+  const verbose = level === "verbose" || level === "debug";
+
+  return { level, quiet, verbose, debug };
+}
+
 async function maybeClean(engine: any, opts: Opts) {
-  if (!opts.clean && !opts.clobber) return;
+  if (!opts.clean) return;
   const docsDir = engine.docsDir;
   if (!docsDir) return;
   try {
@@ -32,8 +62,40 @@ async function withEngine<T>(
     engine: any;
   }) => Promise<T>,
 ) {
-  const useSpinner = !opts.quiet;
+  const progressMode: ProgressMode = progressModeFromOpts(opts);
+  const verbosity = resolveVerbosity(opts, progressMode);
+  const effectiveOpts: Opts = {
+    ...opts,
+    quiet: verbosity.quiet,
+    verbose: verbosity.verbose,
+    debug: verbosity.debug,
+    verbosity: verbosity.level,
+    progress: progressMode,
+  };
+  Object.assign(opts, effectiveOpts);
+
+  const reporter = new ProgressReporter(progressMode);
+  const useSpinner = !effectiveOpts.quiet && progressMode === "none";
   const spinner = useSpinner ? ora(label).start() : null;
+
+  const printPlan = (ctx: {
+    adapterId: string;
+    seedsDir: string | null;
+    engine: any;
+  }) => {
+    const lines = [
+      `Plan: ${label}`,
+      `  stage   : ${opts.stage ?? label}`,
+      `  profile : ${effectiveOpts.profile ?? "auto"}`,
+      `  gates   : ${effectiveOpts.gates ?? "schema,coverage,evidence,build,traceability"}`,
+      `  verbosity: ${verbosity.level}`,
+      `  adapter : ${ctx.adapterId}`,
+      `  seeds   : ${ctx.seedsDir ?? "none"}`,
+      `  out     : ${ctx.engine?.docsDir ?? effectiveOpts.out ?? path.join(process.cwd(), "redox")}`,
+    ];
+    console.log(lines.join("\n"));
+  };
+
   try {
     const startedAt = Date.now();
     const pipelineStages = ["extract", "synthesize", "render", "check"];
@@ -41,8 +103,11 @@ async function withEngine<T>(
     let currentStage: string | null = null;
     let currentGate: string | null = null;
 
-    if (useSpinner) {
-      setEngineEventListener((ev: EngineEvent) => {
+    setEngineEventListener((ev: EngineEvent) => {
+      if (progressMode !== "none") {
+        reporter.log(ev);
+      }
+      if (useSpinner) {
         if (ev.type === "stage-start" && ev.stage) {
           currentStage = ev.stage;
         } else if (ev.type === "stage-end" && ev.stage) {
@@ -72,10 +137,13 @@ async function withEngine<T>(
         const etaLabel = etaSec !== null ? ` eta~${etaSec}s` : "";
 
         spinner!.text = `${label}: stage=${stageLabel || "idle"} time=${elapsedSec}s${etaLabel} progress=${progressPct}%${gateLabel}`;
-      });
-    }
+      }
+    });
 
-    const ctx = await detectAndLoadContext(opts);
+    const ctx = await detectAndLoadContext(effectiveOpts);
+    if (!effectiveOpts.quiet) {
+      printPlan(ctx);
+    }
     const result = await stage(ctx);
     if (spinner) spinner.succeed("done");
     return result;

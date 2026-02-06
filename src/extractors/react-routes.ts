@@ -1,7 +1,7 @@
 import fg from "fast-glob";
 import fs from "fs-extra";
 import * as parser from "@babel/parser";
-import traverse from "@babel/traverse";
+import traverseModule from "@babel/traverse";
 import path from "node:path";
 
 export type ReactRoute = {
@@ -102,6 +102,10 @@ export async function extractReactRoutes(root = ".") {
     } catch {
       continue;
     }
+
+    const traverse: typeof traverseModule =
+      // ESM default import shape can vary; prefer .default when present.
+      (traverseModule as any).default ?? traverseModule;
 
     traverse(ast, {
       JSXOpeningElement(path: any) {

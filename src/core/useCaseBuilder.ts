@@ -14,9 +14,7 @@ export async function buildUseCaseSkeleton(
   const outPath = path.join(engine.evidenceDir, "use-cases.json");
   if (await fs.pathExists(outPath)) {
     if (opts.debug) {
-      console.log(
-        "[redox][debug] use-cases.json exists; skipping skeleton build",
-      );
+      console.log("use-cases.json exists; skipping skeleton build");
     }
     return;
   }
@@ -60,9 +58,7 @@ export async function buildUseCaseSkeleton(
 
   if (!endpoints.length && !routeIds.length) {
     if (opts.debug) {
-      console.log(
-        "[redox][debug] No routes/endpoints; skipping use-case skeleton",
-      );
+      console.log("No routes/endpoints; skipping use-case skeleton");
     }
     return;
   }
@@ -129,17 +125,14 @@ export async function buildUseCaseSkeleton(
   };
 
   if (opts.dryRun) {
-    console.log(
-      "[redox][debug] (dry-run) Would write skeleton use-cases to",
-      outPath,
-    );
+    console.log("(dry-run) Would write skeleton use-cases to", outPath);
     return;
   }
 
   await fs.ensureDir(engine.evidenceDir);
   await fs.writeJson(outPath, doc, { spaces: 2 });
   if (opts.debug) {
-    console.log("[redox][debug] use-cases skeleton written", {
+    console.log("use-cases skeleton written", {
       path: outPath,
       cases: cases.length,
     });

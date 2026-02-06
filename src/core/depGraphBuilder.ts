@@ -34,10 +34,7 @@ export async function buildDepGraph(
   const graphOut = path.join(engine.evidenceDir, "dep-graph.json");
 
   if (opts.dryRun) {
-    console.log(
-      "[redox][debug] (dry-run) Would build TS dep graph from",
-      entry,
-    );
+    console.log("(dry-run) Would build TS dep graph from", entry);
   } else {
     const graph = await tsDepGraph(entry);
     await fs.ensureDir(engine.evidenceDir);
@@ -67,14 +64,11 @@ ${JSON.stringify(context, null, 2)}
   const mdOut = path.join(engine.docsDir, "Dependency Graph.md");
 
   if (opts.debug) {
-    console.log("[redox][debug] dep-graph user prompt", userPrompt);
+    console.log("dep-graph user prompt", userPrompt);
   }
 
   if (opts.dryRun) {
-    console.log(
-      "[redox][debug] (dry-run) Would write dependency graph summary to",
-      mdOut,
-    );
+    console.log("(dry-run) Would write dependency graph summary to", mdOut);
     return;
   }
 
@@ -97,7 +91,7 @@ ${JSON.stringify(context, null, 2)}
   await fs.writeFile(mdOut, text, "utf8");
 
   if (opts.debug) {
-    console.log("[redox][debug] dep graph summary written", { path: mdOut });
+    console.log("dep graph summary written", { path: mdOut });
   }
 
   emitEngineEvent({

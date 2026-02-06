@@ -4,6 +4,7 @@ import path from "node:path";
 import fg from "fast-glob";
 import dotenv from "dotenv";
 import { sha256 } from "../core/evidence.js";
+import crypto from "node:crypto";
 
 export type DbModel = {
   tables: {
@@ -110,6 +111,194 @@ export async function connectByEnv(
     process.env.PGDATABASE = process.env.DB_DATABASE;
   }
   return { client, hydrated };
+}
+
+async function dockerAvailable() {
+  try {
+    await execa("docker", ["--version"]);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function startEphemeralPostgres() {
+  if (!(await dockerAvailable())) {
+    throw new Error("docker is not available; cannot start ephemeral Postgres");
+  }
+  const port = 54_300 + Math.floor(Math.random() * 500);
+  const user = "redox";
+  const password = crypto.randomBytes(8).toString("hex");
+  const db = "redox";
+  const name = `redox-pg-${Date.now()}`;
+  await execa(
+    "docker",
+    [
+      "run",
+      "-d",
+      "--rm",
+      "-e",
+      `POSTGRES_USER=${user}`,
+      "-e",
+      `POSTGRES_PASSWORD=${password}`,
+      "-e",
+      `POSTGRES_DB=${db}`,
+      "-p",
+      `${port}:5432`,
+      "--name",
+      name,
+      "postgres:16",
+    ],
+    { stdout: "ignore", stderr: "inherit" },
+  );
+
+  const url = `postgresql://${user}:${password}@localhost:${port}/${db}`;
+
+  // Wait for readiness by attempting connections
+  const { Client } = await import("pg");
+  const deadline = Date.now() + 20_000;
+  let lastErr: unknown;
+  while (Date.now() < deadline) {
+    try {
+      const client = new Client({ connectionString: url });
+      await client.connect();
+      await client.end();
+      return { url, name, user, password, port, db };
+    } catch (err) {
+      lastErr = err;
+      await new Promise((res) => setTimeout(res, 500));
+    }
+  }
+  try {
+    await execa("docker", ["rm", "-f", name]);
+  } catch {
+    // ignore cleanup failure
+  }
+  throw new Error(
+    `ephemeral Postgres did not become ready: ${String(
+      (lastErr as Error)?.message ?? lastErr,
+    )}`,
+  );
+}
+
+async function stopEphemeralPostgres(name: string) {
+  try {
+    await execa("docker", ["rm", "-f", name]);
+  } catch {
+    // ignore cleanup failure
+  }
+}
+
+async function phpAvailable() {
+  try {
+    await execa("php", ["-v"]);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function runArtisanMigrate(root: string, env: Record<string, string>) {
+  const absRoot = path.resolve(root);
+  const sanitizedEnv = {
+    ...env,
+    TMPDIR: "/tmp",
+    LANG: "C.UTF-8",
+    LC_ALL: "C.UTF-8",
+  };
+  if (await phpAvailable()) {
+    await execa("php", ["artisan", "migrate", "--force"], {
+      cwd: absRoot,
+      env: sanitizedEnv,
+      stdout: "ignore",
+      stderr: "ignore",
+    });
+    return;
+  }
+
+  if (!(await dockerAvailable())) {
+    throw new Error(
+      "php is not available and docker is missing to run artisan",
+    );
+  }
+
+  const envFlags = Object.entries(sanitizedEnv)
+    .filter(([, v]) => typeof v === "string" && v.length > 0)
+    .flatMap(([k, v]) => ["-e", `${k}=${v}`]);
+
+  // Minimal alpine image to avoid locale/apt noise
+  const phpImage = "php:8.2-cli-alpine";
+  await execa(
+    "docker",
+    [
+      "run",
+      "--rm",
+      "-v",
+      `${absRoot}:/app`,
+      "-w",
+      "/app",
+      ...envFlags,
+      phpImage,
+      "sh",
+      "-lc",
+      // Install pgsql extension if missing, then run migrations
+      'set -euo pipefail; if ! php -m | grep -qE "^pdo_pgsql$"; then apk add --no-cache postgresql-dev >/dev/null && docker-php-ext-install -j"$(nproc)" pdo_pgsql >/dev/null; fi; php artisan migrate --force >/dev/null',
+    ],
+    { stdout: "ignore", stderr: "ignore" },
+  );
+}
+
+export async function buildDbModelFromMigrationsLive(root = "."): Promise<{
+  model: DbModel;
+  connectionString: string;
+  sqlDump?: string;
+}> {
+  const container = await startEphemeralPostgres();
+  const connEnv = {
+    ...process.env,
+    DATABASE_URL: container.url,
+    PGDATABASE: container.db,
+    PGUSER: container.user,
+    PGPASSWORD: container.password,
+    DB_DATABASE: container.db,
+    DB_CONNECTION: "pgsql",
+    DB_HOST: "localhost",
+    DB_PORT: String(container.port),
+    DB_USERNAME: container.user,
+    DB_USER: container.user,
+    DB_PASSWORD: container.password,
+  };
+
+  try {
+    // Run Laravel migrations if available
+    if (await fs.pathExists(`${root}/artisan`)) {
+      await runArtisanMigrate(root, connEnv);
+    }
+
+    const { Client } = await import("pg");
+    const client = new Client({ connectionString: container.url });
+    await client.connect();
+    const model = await introspect(client);
+    await client.end();
+
+    let sqlDump: string | undefined;
+    try {
+      const { stdout } = await execa(
+        "pg_dump",
+        ["--schema-only", container.url],
+        {
+          env: connEnv,
+        },
+      );
+      sqlDump = stdout;
+    } catch {
+      // ignore dump failures
+    }
+
+    return { model, connectionString: container.url, sqlDump };
+  } finally {
+    await stopEphemeralPostgres(container.name);
+  }
 }
 
 export async function introspect(client: any): Promise<DbModel> {
@@ -311,7 +500,11 @@ async function modelFromLaravelMigrations(root = "."): Promise<DbModel | null> {
   };
 }
 
-export async function buildDDLFromMigrations(root = ".", outDir = ".") {
+export async function buildDDLFromMigrations(
+  root = ".",
+  outDir = ".",
+  factsDir?: string,
+) {
   hydrateEnvFromFile(root);
   // Run Laravel migrations if a Laravel app is present
   if (await fs.pathExists(`${root}/artisan`)) {
@@ -330,6 +523,10 @@ export async function buildDDLFromMigrations(root = ".", outDir = ".") {
     });
     const ddlPath = outDir ? `${outDir}/database.sql` : "database.sql";
     await fs.writeFile(ddlPath, stdout, "utf8");
+    if (factsDir) {
+      await fs.ensureDir(factsDir);
+      await fs.writeFile(path.join(factsDir, "database.sql"), stdout, "utf8");
+    }
   } catch {
     // pg_dump not available or failed; caller can proceed with DbModel only
   }
@@ -345,4 +542,15 @@ export async function buildDbModelFallback(root = ".") {
     dialect: detectDialect(process.env.DB_CONNECTION ?? ""),
     source: "unknown",
   } satisfies DbModel;
+}
+
+export async function writeDbFacts(
+  model: DbModel,
+  docsDir: string,
+  factsDir: string,
+) {
+  await fs.ensureDir(docsDir);
+  await fs.ensureDir(factsDir);
+  const jsonPath = path.join(factsDir, "database.json");
+  await fs.writeJson(jsonPath, model, { spaces: 2 });
 }

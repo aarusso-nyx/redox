@@ -46,7 +46,7 @@ export async function translateDocs(opts: TranslateOptions) {
 
   if (!files.length) {
     if (debug) {
-      console.log("[redox][translate] no files matched", {
+      console.log("translate: no files matched", {
         srcDir: absSrc,
         include,
         exclude,
@@ -64,7 +64,7 @@ export async function translateDocs(opts: TranslateOptions) {
     const src = await fs.readFile(inPath, "utf8");
 
     if (dryRun) {
-      console.log("[redox][translate][dry-run]", {
+      console.log("translate dry-run", {
         in: inPath,
         out: outPath,
         lang,
@@ -81,7 +81,7 @@ ${src}
 </FILE>`;
 
     if (debug) {
-      console.log("[redox][debug] translate file", {
+      console.log("translate file", {
         in: inPath,
         out: outPath,
         lang,
@@ -114,7 +114,7 @@ ${src}
     await fs.writeFile(outPath, text, "utf8");
 
     if (debug) {
-      console.log("[redox][translate] wrote file", {
+      console.log("translate: wrote file", {
         in: inPath,
         out: outPath,
         length: text.length,

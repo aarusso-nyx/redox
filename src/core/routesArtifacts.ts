@@ -36,7 +36,7 @@ export async function writeRoutesArtifacts(
     const out = path.join(engine.evidenceDir, fileName);
     await fs.writeJson(out, doc, { spaces: 2 });
     if (logEnabled) {
-      console.log("[redox][debug] Routes artifact written", {
+      console.log("Routes artifact written", {
         framework,
         path: out,
         routes: routes.length,

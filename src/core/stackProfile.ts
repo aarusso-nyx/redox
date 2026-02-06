@@ -27,16 +27,13 @@ ${JSON.stringify(context, null, 2)}
 </CONTEXT>`;
 
   if (opts.debug) {
-    console.log("[redox][debug] stackProfile user prompt", userPrompt);
+    console.log("stackProfile user prompt", userPrompt);
   }
 
   const outPath = path.join(engine.evidenceDir, "stack-profile.json");
 
   if (opts.dryRun) {
-    console.log(
-      "[redox][debug] (dry-run) Would write stack profile to",
-      outPath,
-    );
+    console.log("(dry-run) Would write stack profile to", outPath);
     return;
   }
 
@@ -83,7 +80,7 @@ ${JSON.stringify(context, null, 2)}
   await fs.writeJson(outPath, json, { spaces: 2 });
 
   if (opts.debug) {
-    console.log("[redox][debug] stack profile written", { path: outPath });
+    console.log("stack profile written", { path: outPath });
   }
 
   emitEngineEvent({

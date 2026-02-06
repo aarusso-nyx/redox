@@ -16,6 +16,8 @@ import {
   introspect,
   buildDDLFromMigrations,
   buildDbModelFallback,
+  buildDbModelFromMigrationsLive,
+  writeDbFacts,
   type DbModel,
 } from "../extractors/db.js";
 import { laravelRoutes, type LaravelRoute } from "../extractors/api-laravel.js";
@@ -41,6 +43,7 @@ import {
   docsReview,
 } from "../reviewers/reviewers.js";
 import { summarizeUsage } from "./usage.js";
+import { logDebug, logInfo, logError } from "./logger.js";
 
 type Stage =
   | "dev"
@@ -74,11 +77,6 @@ let frontendCache: any | null = null;
 let apiMapCache: ApiMap | null = null;
 let feRoutesCache: { react?: RoutesDoc; angular?: RoutesDoc } | null = null;
 
-function logDebug(enabled: boolean, message: string, detail?: unknown) {
-  if (!enabled) return;
-  console.log(`[redox][debug] ${message}`, detail ?? "");
-}
-
 function usageTotals(summary: Awaited<ReturnType<typeof summarizeUsage>>) {
   return {
     input: summary?.totalInput ?? 0,
@@ -90,6 +88,7 @@ function usageTotals(summary: Awaited<ReturnType<typeof summarizeUsage>>) {
 async function logUsageDelta(
   stage: string,
   before: Awaited<ReturnType<typeof summarizeUsage>>,
+  quiet: boolean,
 ) {
   const usageAfter = await summarizeUsage();
   const beforeTotals = usageTotals(before);
@@ -99,19 +98,27 @@ async function logUsageDelta(
     output: afterTotals.output - beforeTotals.output,
     total: afterTotals.total - beforeTotals.total,
   };
-  console.log(
-    `[redox][usage] stage=${stage} input=${delta.input} output=${delta.output} total=${delta.total} (cum: ${afterTotals.total})`,
-  );
+  if (!quiet) {
+    logInfo(
+      `usage stage=${stage} input=${delta.input} output=${delta.output} total=${delta.total} (cum: ${afterTotals.total})`,
+    );
+  }
 }
 
 async function runExtract(
   engine: EngineContext,
   dryRun: boolean,
   logEnabled: boolean,
+  quiet: boolean,
+  emit: (event: Omit<EngineEvent, "timestamp">) => void,
 ) {
   logDebug(logEnabled, "Stage=extract", { root: engine.root });
 
-  const steps: { name: string; status: "ok" | "fail"; error?: string }[] = [];
+  const steps: {
+    name: string;
+    status: "ok" | "fail" | "skip";
+    error?: string;
+  }[] = [];
   const summary: {
     hydratedEnv: string[];
     dbTables: number;
@@ -130,14 +137,25 @@ async function runExtract(
     stackHint: "",
   };
 
-  const recordStep = (name: string, status: "ok" | "fail", error?: string) => {
+  const recordStep = (
+    name: string,
+    status: "ok" | "fail" | "skip",
+    error?: string,
+  ) => {
     steps.push({ name, status, error });
-    const prefix = status === "ok" ? "[success]" : "[fail]";
+    const base = `${name}`;
     if (status === "ok") {
-      console.log(`[redox][extract] ${prefix} ${name}`);
+      if (!quiet) logInfo(base);
+    } else if (status === "skip") {
+      if (!quiet) logInfo(`${base}: ${error ?? "skipped"}`);
     } else {
-      console.error(`[redox][extract] ${prefix} ${name}: ${error ?? "error"}`);
+      logError(`${base}: ${error ?? "error"}`);
     }
+    emit({
+      type: "step-end",
+      stage: "extract",
+      data: { name, status, error },
+    });
   };
 
   // DB introspection via Postgres catalogs (env-based strategy)
@@ -147,7 +165,7 @@ async function runExtract(
       strategy: "env",
       note: "Would connect using DATABASE_URL and introspect catalogs",
     });
-    recordStep("DB:catalog", "ok");
+    recordStep("DB:catalog", "skip", "dry-run");
   } else {
     let client: any;
     let hydratedEnv: string[] = [];
@@ -160,12 +178,60 @@ async function runExtract(
       summary.hydratedEnv = hydratedEnv;
       recordStep("DB:catalog", "ok");
     } catch (err) {
-      recordStep("DB:catalog", "fail", (err as Error)?.message ?? String(err));
+      const msg = (err as Error)?.message ?? String(err);
+      if (
+        /Unsupported dialect/i.test(msg) ||
+        /DATABASE_URL not set/i.test(msg)
+      ) {
+        recordStep("DB:catalog", "skip", msg);
+      } else {
+        recordStep("DB:catalog", "fail", msg);
+      }
     } finally {
       try {
         await client?.end?.();
       } catch {
         // ignore
+      }
+    }
+
+    if (!model.tables.length) {
+      try {
+        logDebug(
+          logEnabled,
+          "DB introspection: running migrations in ephemeral Postgres",
+        );
+        const live = await buildDbModelFromMigrationsLive(engine.root);
+        model = {
+          ...live.model,
+          dialect: "postgres",
+          source: "migrations",
+        };
+        summary.hydratedEnv = Array.from(
+          new Set([...summary.hydratedEnv, "DATABASE_URL"]),
+        );
+        recordStep("DB:ephemeral", "ok");
+        if (live.sqlDump) {
+          try {
+            const ddlPath = path.join(engine.docsDir, "database.sql");
+            await fs.ensureDir(engine.docsDir);
+            await fs.writeFile(ddlPath, live.sqlDump, "utf8");
+            if (engine.evidenceDir) {
+              await fs.ensureDir(engine.evidenceDir);
+              await fs.writeFile(
+                path.join(engine.evidenceDir, "database.sql"),
+                live.sqlDump,
+                "utf8",
+              );
+            }
+            recordStep("DB:dump", "ok");
+          } catch {
+            recordStep("DB:dump", "fail", "write failed");
+          }
+        }
+      } catch (err) {
+        const msg = (err as Error)?.message ?? String(err);
+        recordStep("DB:ephemeral", "skip", msg);
       }
     }
   }
@@ -187,13 +253,21 @@ async function runExtract(
   dbModelCache = model;
   summary.dbTables = model.tables.length;
   summary.dbSchemas = new Set(model.tables.map((t: any) => t.schema)).size;
+  if (engine.evidenceDir) {
+    try {
+      await writeDbFacts(model, engine.docsDir, engine.evidenceDir);
+      recordStep("DB:facts", "ok");
+    } catch (err) {
+      recordStep("DB:facts", "fail", (err as Error)?.message ?? String(err));
+    }
+  }
 
   // Laravel routes (if applicable)
   let routes: LaravelRoute[] = [];
   let nestRoutes: NestRoute[] = [];
   if (dryRun) {
-    recordStep("Routes:laravel", "ok");
-    recordStep("Routes:nest", "ok");
+    recordStep("Routes:laravel", "skip", "dry-run");
+    recordStep("Routes:nest", "skip", "dry-run");
   } else {
     try {
       routes = await laravelRoutes(engine.root);
@@ -209,7 +283,12 @@ async function runExtract(
       nestRoutes = nestControllers(engine.root);
       recordStep("Routes:nest", "ok");
     } catch (err) {
-      recordStep("Routes:nest", "fail", (err as Error)?.message ?? String(err));
+      const msg = (err as Error)?.message ?? String(err);
+      if (/tsconfig\.json/i.test(msg) || /File not found/i.test(msg)) {
+        recordStep("Routes:nest", "skip", "tsconfig missing");
+      } else {
+        recordStep("Routes:nest", "fail", msg);
+      }
       nestRoutes = [];
     }
   }
@@ -247,11 +326,8 @@ async function runExtract(
   const runReact = async () => {
     logDebug(logEnabled, "React routes extraction", { root: engine.root });
     frontendCache.react = await extractReactRoutes(engine.root).catch((err) => {
-      recordStep(
-        "Frontend:react",
-        "fail",
-        (err as Error)?.message ?? String(err),
-      );
+      const msg = (err as Error)?.message ?? String(err);
+      recordStep("Frontend:react", "fail", msg);
       return null;
     });
     if (frontendCache.react) recordStep("Frontend:react", "ok");
@@ -349,31 +425,33 @@ async function runExtract(
           ? "php"
           : engine.profile.hasNode
             ? "node"
-            : "unknown";
-  summary.stackHint = `${backendHint}/${frontendMode}/${model.dialect ?? "db"}`;
+            : "none";
+  const frontendLabel = frontendMode === "unknown" ? "none" : frontendMode;
+  summary.stackHint = `${backendHint}/${frontendLabel}/${model.dialect ?? "db"}`;
 
-  console.log("[redox][extract][summary] Stack:", summary.stackHint);
-  console.log(
-    "[redox][extract][summary] Hydrated env keys:",
-    summary.hydratedEnv.length ? summary.hydratedEnv.join(", ") : "none",
-  );
-  console.log(
-    "[redox][extract][summary] DB tables:",
-    summary.dbTables,
-    "schemas:",
-    summary.dbSchemas,
-  );
-  console.log(
-    "[redox][extract][summary] Backend routes:",
-    summary.backendRoutes,
-  );
-  console.log(
-    "[redox][extract][summary] Frontend routes:",
-    summary.frontendRoutes,
-    "(mode:",
-    summary.frontendMode,
-    ")",
-  );
+  if (!quiet) {
+    if (!quiet) {
+      logInfo("Extract summary stack:", summary.stackHint);
+      logInfo(
+        "Extract summary env keys:",
+        summary.hydratedEnv.length ? summary.hydratedEnv.join(", ") : "none",
+      );
+      logInfo(
+        "Extract summary DB tables:",
+        summary.dbTables,
+        "schemas:",
+        summary.dbSchemas,
+      );
+      logInfo("Extract summary backend routes:", summary.backendRoutes);
+      logInfo(
+        "Extract summary frontend routes:",
+        summary.frontendRoutes,
+        "(mode:",
+        summary.frontendMode,
+        ")",
+      );
+    }
+  }
 
   return {
     dbModel: model,
@@ -386,6 +464,7 @@ async function runRender(
   engine: EngineContext,
   dryRun: boolean,
   logEnabled: boolean,
+  emit: (event: Omit<EngineEvent, "timestamp">) => void,
 ) {
   logDebug(logEnabled, "Stage=render", { hasDbModel: !!dbModelCache });
   if (!dbModelCache) return;
@@ -401,8 +480,18 @@ async function runRender(
     return;
   }
 
-  await buildDDLFromMigrations(engine.root, engine.docsDir);
+  emit({
+    type: "phase-start",
+    stage: "render",
+    data: { name: "database.sql" },
+  });
+  await buildDDLFromMigrations(engine.root, engine.docsDir, engine.evidenceDir);
+  emit({ type: "phase-end", stage: "render", data: { name: "database.sql" } });
+
+  emit({ type: "phase-start", stage: "render", data: { name: "ERD" } });
   await writeDbAndErdFromModel(engine.root, engine.docsDir, dbModelCache);
+  emit({ type: "phase-end", stage: "render", data: { name: "ERD" } });
+
   await runArtifactBuilders("render", engine, {
     dbModel: dbModelCache,
     dryRun,
@@ -416,13 +505,16 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
   const dryRun = opts.dryRun ?? opts.engine.flags.dryRun;
   const debug = opts.debug ?? opts.engine.flags.debug;
   const verbose = opts.verbose ?? opts.engine.flags.verbose;
+  const quiet = opts.quiet ?? opts.engine.flags.quiet;
   const logEnabled = debug || verbose;
 
   const emit = (event: Omit<EngineEvent, "timestamp">) =>
     emitEngineEvent({ stage, profile: opts.profile, ...event }, opts.onEvent);
 
   emit({ type: "stage-start", data: { gates, dryRun } });
-  console.log(`[redox][stage] ${stage}`);
+  if (!quiet) {
+    logInfo(`stage ${stage}`);
+  }
 
   if (stage === "check") {
     const root = opts.engine.root;
@@ -466,6 +558,11 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
       coverageData = await fs.readJson(coveragePath);
     }
 
+    const plannedGateCount =
+      (gates ? gates.split(",").filter(Boolean).length : 0) +
+      (rbacExists ? 1 : 0) +
+      (lgpdExists ? 1 : 0);
+
     logDebug(logEnabled, "Stage=check", {
       gates,
       coveragePath: coverageExists ? coveragePath : null,
@@ -475,6 +572,7 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
       fpPath: fpExists ? fpPath : null,
       stackProfilePath: stackProfileExists ? stackProfilePath : null,
       depGraphPath: depGraphExists ? depGraphPath : null,
+      plannedGateCount,
     });
 
     const failedGates: { gate: string; error: Error }[] = [];
@@ -556,15 +654,25 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
           }
         }
         emit({ type: "gate-end", gate: "schema", success: true });
+        emit({
+          type: "phase-end",
+          stage: "check",
+          data: { name: "gate:schema", total: plannedGateCount },
+        });
       } catch (err) {
         const message =
           (err as Error).message ?? `Schema gate failed: ${String(err)}`;
-        console.error("[redox][gate] schema failed:", message);
+        console.error("Gate schema failed:", message);
         console.error(
-          "[redox][hint] Check JSON artifacts in facts/ against the schemas in src/schemas/ (ApiMap, Routes, CoverageMatrix, etc.).",
+          "Hint: Check JSON artifacts in facts/ against the schemas in src/schemas/ (ApiMap, Routes, CoverageMatrix, etc.).",
         );
         failedGates.push({ gate: "schema", error: err as Error });
         emit({ type: "gate-end", gate: "schema", success: false });
+        emit({
+          type: "phase-end",
+          stage: "check",
+          data: { name: "gate:schema", total: plannedGateCount },
+        });
       }
     }
 
@@ -591,15 +699,25 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
           coverageGate(allRoutes, allEndpoints, links);
         }
         emit({ type: "gate-end", gate: "coverage", success: true });
+        emit({
+          type: "phase-end",
+          stage: "check",
+          data: { name: "gate:coverage", total: plannedGateCount },
+        });
       } catch (err) {
         const message =
           (err as Error).message ?? `Coverage gate failed: ${String(err)}`;
-        console.error("[redox][gate] coverage failed:", message);
+        console.error("Gate coverage failed:", message);
         console.error(
-          "[redox][hint] Ensure coverage-matrix.json has non-empty routes/endpoints and links, and that use-cases.json and routes-*.json are wired correctly.",
+          "Hint: Ensure coverage-matrix.json has non-empty routes/endpoints and links, and that use-cases.json and routes-*.json are wired correctly.",
         );
         failedGates.push({ gate: "coverage", error: err as Error });
         emit({ type: "gate-end", gate: "coverage", success: false });
+        emit({
+          type: "phase-end",
+          stage: "check",
+          data: { name: "gate:coverage", total: plannedGateCount },
+        });
       }
     }
 
@@ -611,15 +729,25 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
           traceabilityGate(coverageData);
         }
         emit({ type: "gate-end", gate: "traceability", success: true });
+        emit({
+          type: "phase-end",
+          stage: "check",
+          data: { name: "gate:traceability", total: plannedGateCount },
+        });
       } catch (err) {
         const message =
           (err as Error).message ?? `Traceability gate failed: ${String(err)}`;
-        console.error("[redox][gate] traceability failed:", message);
+        console.error("Gate traceability failed:", message);
         console.error(
-          "[redox][hint] Check that every route/endpoint in coverage-matrix.json participates in a Route↔Endpoint↔UseCase triad.",
+          "Hint: Check that every route/endpoint in coverage-matrix.json participates in a Route↔Endpoint↔UseCase triad.",
         );
         failedGates.push({ gate: "traceability", error: err as Error });
         emit({ type: "gate-end", gate: "traceability", success: false });
+        emit({
+          type: "phase-end",
+          stage: "check",
+          data: { name: "gate:traceability", total: plannedGateCount },
+        });
       }
     }
 
@@ -632,15 +760,25 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
           await evidenceFileGate(root, evidenceFile);
         }
         emit({ type: "gate-end", gate: "evidence", success: true });
+        emit({
+          type: "phase-end",
+          stage: "check",
+          data: { name: "gate:evidence", total: plannedGateCount },
+        });
       } catch (err) {
         const message =
           (err as Error).message ?? `Evidence gate failed: ${String(err)}`;
-        console.error("[redox][gate] evidence failed:", message);
+        console.error("Gate evidence failed:", message);
         console.error(
-          "[redox][hint] Verify that evidence.jsonl exists and that tool calls are writing valid JSONL lines.",
+          "Hint: Verify that evidence.jsonl exists and that tool calls are writing valid JSONL lines.",
         );
         failedGates.push({ gate: "evidence", error: err as Error });
         emit({ type: "gate-end", gate: "evidence", success: false });
+        emit({
+          type: "phase-end",
+          stage: "check",
+          data: { name: "gate:evidence", total: plannedGateCount },
+        });
       }
     }
 
@@ -652,15 +790,25 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
           await buildGate(root, docsDir);
         }
         emit({ type: "gate-end", gate: "build", success: true });
+        emit({
+          type: "phase-end",
+          stage: "check",
+          data: { name: "gate:build", total: plannedGateCount },
+        });
       } catch (err) {
         const message =
           (err as Error).message ?? `Build gate failed: ${String(err)}`;
-        console.error("[redox][gate] build failed:", message);
+        console.error("Gate build failed:", message);
         console.error(
-          "[redox][hint] Check database.sql and ERD.mmd; ensure psql, mmdc/mermaid CLI, and any other build tools are installed.",
+          "Hint: Check database.sql and ERD.mmd; ensure psql, mmdc/mermaid CLI, and any other build tools are installed.",
         );
         failedGates.push({ gate: "build", error: err as Error });
         emit({ type: "gate-end", gate: "build", success: false });
+        emit({
+          type: "phase-end",
+          stage: "check",
+          data: { name: "gate:build", total: plannedGateCount },
+        });
       }
     }
 
@@ -681,15 +829,25 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
           rbacGate(matrixRows);
         }
         emit({ type: "gate-end", gate: "rbac", success: true });
+        emit({
+          type: "phase-end",
+          stage: "check",
+          data: { name: "gate:rbac", total: plannedGateCount },
+        });
       } catch (err) {
         const message =
           (err as Error).message ?? `RBAC gate failed: ${String(err)}`;
-        console.error("[redox][gate] rbac failed:", message);
+        console.error("Gate rbac failed:", message);
         console.error(
-          "[redox][hint] Inspect rbac.json and ensure roleBindings and permissions match your policy.",
+          "Hint: Inspect rbac.json and ensure roleBindings and permissions match your policy.",
         );
         failedGates.push({ gate: "rbac", error: err as Error });
         emit({ type: "gate-end", gate: "rbac", success: false });
+        emit({
+          type: "phase-end",
+          stage: "check",
+          data: { name: "gate:rbac", total: plannedGateCount },
+        });
       }
     }
 
@@ -711,21 +869,31 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
           }
         }
         emit({ type: "gate-end", gate: "lgpd", success: true });
+        emit({
+          type: "phase-end",
+          stage: "check",
+          data: { name: "gate:lgpd", total: plannedGateCount },
+        });
       } catch (err) {
         const message =
           (err as Error).message ?? `LGPD gate failed: ${String(err)}`;
-        console.error("[redox][gate] lgpd failed:", message);
+        console.error("Gate lgpd failed:", message);
         console.error(
-          "[redox][hint] Review lgpd-map.json for missing or inconsistent legalBasis/retention entries.",
+          "Hint: Review lgpd-map.json for missing or inconsistent legalBasis/retention entries.",
         );
         failedGates.push({ gate: "lgpd", error: err as Error });
         emit({ type: "gate-end", gate: "lgpd", success: false });
+        emit({
+          type: "phase-end",
+          stage: "check",
+          data: { name: "gate:lgpd", total: plannedGateCount },
+        });
       }
     }
 
     if (failedGates.length) {
       console.error(
-        "[redox][check] One or more gates failed; see messages above for details and hints.",
+        "One or more gates failed; see messages above for details and hints.",
       );
     }
 
@@ -733,21 +901,21 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
       type: "stage-end",
       success: failedGates.length === 0,
     });
-    await logUsageDelta(stage, usageBefore);
+    await logUsageDelta(stage, usageBefore, quiet);
     return;
   }
 
   if (stage === "extract") {
-    await runExtract(opts.engine, dryRun, logEnabled);
+    await runExtract(opts.engine, dryRun, logEnabled, quiet, emit);
     emit({ type: "stage-end", success: true });
-    await logUsageDelta(stage, usageBefore);
+    await logUsageDelta(stage, usageBefore, quiet);
     return;
   }
 
   if (stage === "render") {
-    await runRender(opts.engine, dryRun, logEnabled);
+    await runRender(opts.engine, dryRun, logEnabled, emit);
     emit({ type: "stage-end", success: true });
-    await logUsageDelta(stage, usageBefore);
+    await logUsageDelta(stage, usageBefore, quiet);
     return;
   }
 
@@ -791,7 +959,7 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
       await writeAuditDocsLLM(opts.engine, facts, { dryRun, debug });
     }
     emit({ type: "stage-end", success: true });
-    await logUsageDelta(stage, usageBefore);
+    await logUsageDelta(stage, usageBefore, quiet);
     return;
   }
 
@@ -882,7 +1050,7 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
     }
     await orchestrate("check", opts);
     emit({ type: "stage-end", success: true });
-    await logUsageDelta(stage, usageBefore);
+    await logUsageDelta(stage, usageBefore, quiet);
     return;
   }
 
@@ -894,6 +1062,6 @@ export async function orchestrate(stage: Stage, opts: OrchestratorOpts) {
     await orchestrate("render", opts);
     await orchestrate("check", opts);
     emit({ type: "stage-end", success: true });
-    await logUsageDelta(stage, usageBefore);
+    await logUsageDelta(stage, usageBefore, quiet);
   }
 }

@@ -19,7 +19,9 @@
   "type": "module",
   "bin": {
     "redox": "bin/redox",
-    "redox-ui": "bin/redox-ui"
+    "redox-ui": "bin/redox-ui",
+    "redox-translate": "bin/redox-translate",
+    "redox-export": "bin/redox-export"
   },
   "dependencies": {
     "@babel/parser": "^7.28.5",
