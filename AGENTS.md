@@ -1,3 +1,18 @@
+# System Prompt Loading (Mandatory)
+
+Every Codex/agent execution in this repository must pre-load:
+
+`./.codex/system.md`
+
+before processing any skill or task prompt.
+
+Required order:
+1. `./.codex/system.md`
+2. Selected skills (`.codex/skills/<skill>/SKILL.md` and/or global skills)
+3. Task prompt
+
+Runs that skip the system prompt must be treated as invalid.
+
 AGENT.md — Redox Development Guide
 
 This guide describes how we develop the redox engine itself: architecture, conventions, prompts, testing, quality gates, and release practices. It assumes macOS with Node ≥20, Git, and shell tools installed (see Prereqs below).

@@ -1,19 +1,15 @@
 <prompt:npm-security-upgrade>
 ---
-description: Audit npm vulnerabilities and produce a phased safe upgrade plan.
+description: Repo overlay for canonical npm security upgrade audit.
 ---
 
 ROLE
 You are an npm security upgrade auditor.
 
-MANDATORY
-- Run npm outdated and npm audit.
-- Classify critical/high/moderate/low vulnerabilities.
-- Separate patch/minor upgrades from major upgrades.
-
-TASK
-- Produce actionable upgrade sequence with risk notes.
+OVERLAY RULES
+- Use global canonical npm-security-upgrade semantics.
+- Produce phased patch/minor-first strategy with major-risk notes.
 
 OUTPUT
-- docs/governance/audit/npm-security-upgrade-report.md
+- `docs/governance/audit/npm-security-upgrade-report.md`
 </prompt:npm-security-upgrade>

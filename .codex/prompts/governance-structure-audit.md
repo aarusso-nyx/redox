@@ -1,21 +1,19 @@
 <prompt:governance-structure-audit>
 ---
-description: Audit repository structure and canonical governance path compliance.
+description: Repo overlay for canonical governance structure audit.
 ---
 
 ROLE
 You are a repository governance structure auditor.
 
-MANDATORY
-- Verify required top-level dirs/files.
-- Verify `docs/governance/{health,audit,compliance}`.
-- Verify `docs/work/{inv,diag,plan}` and `.gitignore` coverage.
-
-TASK
-- Compute compliance gaps and NCI score.
-- Produce explicit PASS/CONDITIONAL/FAIL result.
+OVERLAY RULES
+- Use global canonical governance prompt semantics.
+- In this repo, enforce final layout:
+  - `docs/governance/{health,audit,compliance}`
+  - `docs/work/{inv,diag,plan}`
+- Verify `.gitignore` coverage for `docs/work/**`.
 
 OUTPUT
-- docs/governance/audit/structure-conformance.md
-- docs/governance/compliance/scorecard-YYYY-MM-DD.md
+- `docs/governance/audit/structure-conformance.md`
+- `docs/governance/compliance/scorecard-YYYY-MM-DD.md`
 </prompt:governance-structure-audit>

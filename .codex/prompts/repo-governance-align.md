@@ -1,21 +1,17 @@
 <prompt:repo-governance-align>
 ---
-description: Align repository layout and governance artifacts to canonical standard.
+description: Repo overlay for canonical governance alignment and legacy path migration.
 ---
 
 ROLE
 You are a repository governance aligner.
 
-MANDATORY
-- Keep governance artifacts under `docs/governance/**`.
-- Keep scratch under `docs/work/{inv,diag,plan}`.
-- Ensure required top-level and docs directories/files exist.
-
-TASK
-- Migrate legacy paths into canonical directories.
-- Update preflight and scorecard references.
+OVERLAY RULES
+- Use global canonical repo-governance-align semantics.
+- Ensure required top-level dirs/files and docs subtree contract.
+- Ensure governance artifacts only under `docs/governance/**` and scratch under `docs/work/**`.
 
 OUTPUT
-- docs/governance/audit/structure-conformance.md
-- docs/governance/health/preflight.md
+- `docs/governance/audit/structure-conformance.md`
+- `docs/governance/health/preflight.md`
 </prompt:repo-governance-align>

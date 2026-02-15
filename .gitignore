@@ -4,6 +4,7 @@ dist/
 coverage/
 .revdoc/
 .env
+.agent
 .DS_Store
 *.log
 docs/work/inv/*
