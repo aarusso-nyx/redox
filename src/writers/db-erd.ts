@@ -55,6 +55,7 @@ export function renderErdNarrative(
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const engineRoot = path.resolve(__dirname, "..", "..");
 const engineBinDir = path.join(engineRoot, "node_modules", ".bin");
+const localMermaidBin = "tools/mermaid-cli/node_modules/.bin/mmdc";
 
 export async function writeDbAndErdDocs(
   root: string,
@@ -85,7 +86,9 @@ set -euo pipefail
 INPUT="${path.relative(root, mmdPath)}"
 OUTPUT="${path.relative(root, pngPath)}"
 
-if [ -x "node_modules/.bin/mmdc" ]; then
+if [ -x "${localMermaidBin}" ]; then
+  MMDC="${localMermaidBin}"
+elif [ -x "node_modules/.bin/mmdc" ]; then
   MMDC="node_modules/.bin/mmdc"
 else
   MMDC="mmdc"

@@ -1,0 +1,12 @@
+{
+  "name": "redox-mermaid-local",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Repo-local Mermaid CLI runtime for redox",
+  "scripts": {
+    "postinstall": "echo 'Local mmdc ready at tools/mermaid-cli/node_modules/.bin/mmdc'"
+  },
+  "dependencies": {
+    "@mermaid-js/mermaid-cli": "^11.12.0"
+  }
+}

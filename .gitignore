@@ -1,7 +1,14 @@
 node_modules/
+tools/mermaid-cli/node_modules/
 dist/
 coverage/
 .revdoc/
 .env
 .DS_Store
 *.log
+docs/work/inv/*
+docs/work/diag/*
+docs/work/plan/*
+!docs/work/inv/.gitkeep
+!docs/work/diag/.gitkeep
+!docs/work/plan/.gitkeep

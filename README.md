@@ -67,7 +67,7 @@ In practice:
 - Node.js ≥ 20
 - macOS or Linux shell with:
   - `docker` and `docker compose` for stack‑specific workflows (optional but recommended).
-  - `mmdc` (Mermaid CLI) for ERD PNG rendering (optional).
+  - `mmdc` (Mermaid CLI) for ERD PNG rendering (optional; repo-local install supported).
   - `psql` / `pg_dump` for Postgres DDL snapshots (optional).
 - OpenAI API key:
   - `OPENAI_API_KEY` or `OPENAI_KEY` in the environment.
@@ -98,6 +98,12 @@ npm run build
 ```
 
 Ensure your `.env` (or shell env) provides `OPENAI_API_KEY` (or `OPENAI_KEY`) and any DB connection variables (`DATABASE_URL`, `PGDATABASE`, etc.).
+
+For repo-local Mermaid rendering support:
+
+```bash
+npm --prefix tools/mermaid-cli install
+```
 
 ---
 
